@@ -1,0 +1,20 @@
+# Append these site blocks to the shared host's existing Caddyfile.
+# The HTTP POST exception is temporary and explicitly enabled for ESP testing.
+sap.elischiffler.dev {
+    reverse_proxy 127.0.0.1:18080
+}
+
+http://sap.elischiffler.dev {
+    @esp_ingest {
+        method POST
+        path /api/esp/notifications
+    }
+    handle @esp_ingest {
+        reverse_proxy 127.0.0.1:18080 {
+            header_up Host sap.elischiffler.dev
+        }
+    }
+    handle {
+        redir https://sap.elischiffler.dev{uri} 308
+    }
+}

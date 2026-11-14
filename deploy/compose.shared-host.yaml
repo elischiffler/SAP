@@ -1,0 +1,6 @@
+services:
+  caddy:
+    ports: !override
+      - "127.0.0.1:${SAP_PROXY_PORT:-18080}:8080"
+    volumes: !override
+      - ./deploy/Caddyfile.shared-host:/etc/caddy/Caddyfile:ro

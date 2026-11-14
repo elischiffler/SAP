@@ -1,0 +1,72 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      ENVIRONMENT: production
+      PUBLIC_HOST: "${PUBLIC_HOST:?Set PUBLIC_HOST to the demo DNS hostname}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Set OPENAI_API_KEY}"
+      ESP_INGEST_TOKEN: "${ESP_INGEST_TOKEN:?Set ESP_INGEST_TOKEN for the bridge}"
+      ESP_TIMEZONE: "${ESP_TIMEZONE:-America/Los_Angeles}"
+      CLASSIFIER_PROVIDER: openai
+      TTS_PROVIDER: openai
+      TTS_VOICE: alloy
+      MAX_PROVIDER_CALLS: "${MAX_PROVIDER_CALLS:-5000}"
+      MAX_PENDING_NOTIFICATIONS: "${MAX_PENDING_NOTIFICATIONS:-100}"
+    volumes:
+      - sap_data:/data
+    networks:
+      - upstream
+      - app_egress
+    mem_limit: 768m
+    cpus: 1.0
+    logging: *logging
+
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      PUBLIC_HOST: "${PUBLIC_HOST:?Set PUBLIC_HOST to the demo DNS hostname}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - upstream
+      - edge
+    mem_limit: 128m
+    cpus: 0.5
+    logging: *logging
+
+networks:
+  upstream:
+    internal: true
+  app_egress:
+  edge:
+
+volumes:
+  sap_data:
+  caddy_data:
+  caddy_config:

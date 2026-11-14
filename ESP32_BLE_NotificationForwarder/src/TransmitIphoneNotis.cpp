@@ -5,13 +5,14 @@
 #include <WiFiClientSecure.h>
 #include <NimBLEDevice.h>
 #include "config.h"
+#include "notification_limits.h"
 
 static const NimBLEUUID ANCS_SVC("7905F431-B5CE-4E99-A40F-4B1E122D00D0");
 static const NimBLEUUID NS_UUID("9FBF120D-6301-42D9-8C58-25E699A21DBD");  // Notification Source
 static const NimBLEUUID CP_UUID("69D1D8F3-45E1-49A8-9821-9BBDFDAAD9D9");  // Control Point
 static const NimBLEUUID DS_UUID("22EAC6E9-24D6-4BB5-BE44-B36ACE7C7BFB");  // Data Source
 
-struct Noti { char app[64]; char title[64]; char subtitle[64]; char message[201]; char date[20]; };
+struct Noti { char app[64]; char title[64]; char subtitle[64]; char message[kMessageBytes + 1]; char date[20]; };
 
 // BLE callbacks -> loop() handoff. Single producer / single consumer rings; full = drop.
 static volatile uint32_t uidQ[8];
@@ -27,7 +28,8 @@ static volatile bool ancsReady = false;
 static uint32_t setupAt = 0;  // earliest millis() to run setupAncs()
 
 // Data Source reassembly (one Get Notification Attributes request in flight at a time)
-static uint8_t dsBuf[512];
+// Bounded reassembly includes five attribute headers and source labels.
+static uint8_t dsBuf[kResponseBytes];
 static volatile size_t dsLen = 0;
 static volatile bool waiting = false;
 static uint32_t requestedAt = 0, pendingUid = 0;
@@ -47,7 +49,9 @@ static void tryParse() {
   if (dsLen < 5) return;
   uint32_t uid = dsBuf[1] | (dsBuf[2] << 8) | (dsBuf[3] << 16) | ((uint32_t)dsBuf[4] << 24);
   if (dsBuf[0] != 0 || uid != pendingUid) { dsLen = 0; return; }  // stale/garbage
-  Noti nt = {};
+  // Keep the larger notification off the BLE task stack. Callback-owned scratch.
+  static Noti nt;
+  memset(&nt, 0, sizeof nt);
   size_t p = 5;
   for (int got = 0; got < 5; got++) {
     if (p + 3 > dsLen) return;  // wait for more packets
@@ -63,7 +67,7 @@ static void tryParse() {
       case 3: dst = nt.message; cap = sizeof nt.message; break;
       case 5: dst = nt.date; cap = sizeof nt.date; break;
     }
-    if (dst) { size_t m = min((size_t)len, cap - 1); memcpy(dst, dsBuf + p, m); dst[m] = 0; }
+    if (dst) { size_t m = utf8PrefixLength(dsBuf + p, len, cap - 1); memcpy(dst, dsBuf + p, m); dst[m] = 0; }
     p += len;
   }
   dsLen = 0;
@@ -75,7 +79,12 @@ static void tryParse() {
 }
 
 static void onDataSource(NimBLERemoteCharacteristic*, uint8_t* d, size_t n, bool) {
-  if (dsLen + n > sizeof dsBuf) { dsLen = 0; return; }
+  if (!waiting) return;
+  if (n > sizeof dsBuf - dsLen) {
+    dsLen = 0; waiting = false;
+    Serial.println("[ANCS] response too large, dropped");
+    return;
+  }
   memcpy(dsBuf + dsLen, d, n);
   dsLen += n;
   tryParse();
@@ -88,7 +97,7 @@ static void requestAttributes(uint32_t uid) {
     0,                                           // App Identifier
     1, sizeof(Noti::title) - 1, 0,               // Title, max len
     2, sizeof(Noti::subtitle) - 1, 0,            // Subtitle, max len
-    3, sizeof(Noti::message) - 1, 0,             // Message, max len
+    3, (uint8_t)(kMessageBytes & 0xff), (uint8_t)(kMessageBytes >> 8), // 16-bit LE
     5,                                           // Date
   };
   dsLen = 0;
@@ -226,7 +235,7 @@ void loop() {
     setupAt = millis() + 2000;
   }
 
-  if (waiting && millis() - requestedAt > 3000) { Serial.println("[ANCS] attribute request timed out"); waiting = false; }
+  if (waiting && millis() - requestedAt > 10000) { Serial.println("[ANCS] attribute request timed out"); waiting = false; }
   if (ancsReady && !waiting && uidTail != uidHead) {
     uint32_t uid = uidQ[uidTail];
     uidTail = (uidTail + 1) % 8;

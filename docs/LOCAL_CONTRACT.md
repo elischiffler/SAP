@@ -1,0 +1,56 @@
+> Current deployment additions (November 14): request history persists for 1,000 requests, with original payloads expiring after two hours. The generic manual submission route is disabled outside isolated Python tests. Pi `/status`, `/audio/<id>`, `/ack` expose one message per press; see [PI_HANDOFF.md](PI_HANDOFF.md). The provider-operation cap is 5,000. These decisions supersede earlier local-demo limits/retention below.
+
+# Local implementation contract v1
+
+Current scope: local demo with grouped sample/manual input and Mac playback; an authenticated HTTPS EC2 deployment configuration is also provided. Real phone capture is unverified. Root owns contracts/, pyproject.toml, README, scripts and integration. Server worker owns server/; intelligence worker owns intelligence/ and evals/; interface worker owns web/index.html, web/styles.css and web/app.js. A separate user-owned chat exclusively owns web/showcase/. Changes to shared models must be coordinated.
+
+## Provider interface (intelligence/)
+
+Export `build_providers(settings: Settings) -> tuple[Classifier, SpeechProvider]` from `intelligence`.
+
+- `await classifier.classify(notification: NotificationInput) -> ClassificationResult`
+- `await classifier.classify_batch(notifications: list[NotificationInput]) -> list[ClassificationResult]`: up to ten same-conversation messages in one operation, one validated decision per member.
+- `await build_group_summarizer(settings).summarize(group: NotificationGroup) -> str`: validated count-prefixed group digest, at most 350 characters.
+- `await speech.synthesize(text: str, destination: Path) -> Path`: create bounded WAV without playback. New hosted speech uses Alloy; no per-item voice override. Never send priority 1–2 text to speech.
+- Exceptions are caught by server without displaying/logging notification contents or secrets. Use explicit failure state; do not silently pretend model results are real when demo provider is selected.
+- Settings/contracts in contracts/ are shared. No API calls on import. OpenAI provider uses .env. Demo classifier is explicitly labeled and deterministic for sample development only. macOS speech uses subprocess argument arrays, never shell interpolation.
+- Server owns durable request-call accounting (max_provider_calls across restarts), bounded jobs, retry policy. Provider should use bounded timeout and SDK max_retries=0 to make each invocation count one request; no hidden model fallback.
+
+## HTTP /api
+
+POST `/api/esp/notifications`: raw UTF-8 `text/plain` pipe-delimited ESP packet with `Authorization: Bearer <ESP_INGEST_TOKEN>` and optional `X-Event-ID` UUID. Returns the existing 202 event/status envelope. Validates bundle ID, bounded label/body, real compact timestamp, timezone/DST ambiguity, and 32 KiB body. Production requires a configured token; Caddy passes this route through without browser Basic authentication while other routes remain protected. Invalid packet/token errors omit payload contents. See ESP.md for retry/idempotency limits. The canonical JSON route below remains useful for richer app/contact/conversation metadata.
+
+
+`NotificationInput` accepts optional `sender_id`, `conversation_id`, and `conversation_name`, each a nonblank string of at most 120 characters. Per-item voice overrides are rejected. See GROUPING.md for matching, count, batching, and frozen-delivery semantics. Legacy queued voice fields are migrated away without changing existing WAVs.
+
+After classification, the server replaces the model's `spoken_text` with deterministic source-based wording through `format_notification_for_speech`. Priorities 1–2 remain null. Preview redaction, explicit shortening, and hidden-content fallback apply before persistence and speech.
+
+Server app export `server.app:app` plus `create_app(settings=None, classifier=None, speech=None, summarizer=None)` for tests. Root script runs Uvicorn on 127.0.0.1:8000, one worker. Serve web/ at / after API routes; never serve root or .env.
+
+- POST `/api/notifications`: NotificationInput JSON. Return 202 `{event_id,status}` after persistence; reused event_id is idempotent with no reprocessing. Capacity 100 across all outstanding content-bearing items (pending/processing/ready/leased/failed); reject overload with 429. Schema/body validation; 32 KiB max body.
+- GET `/api/state`: `{providers:{classifier,tts}, counts:{pending,ready,leased,played,discarded,failed},items:[{id,app,sender,priority,status,spoken_text,error,created_at}],alerts:[{id,priority:5,created_at}],limits:{provider_calls,max_provider_calls},active_delivery:null|DeliveryLease}`. Pending items may have null priority/spoken_text. Never expose discarded content or secret/provider error bodies. No lease token in active_delivery needed: frontend uses claim to recover its lease. To simplify active_delivery may be null; items report leased state. Bound result arrays. alerts are metadata only and published before TTS finishes. No full audio in state. Queue items and leases also include UTC `received_at`, `notification_count` (1–50), and nullable `conversation_name`. Queue `created_at` remains server arrival time. Active counts describe queue items/groups; played and discarded counts describe original notifications.
+- POST `/api/delivery/claim` body `{device_id}` returns `{delivery: null|DeliveryLease}`. Device ID constrained to safe small identifier. Claim only ready audio. Return same active unexpired lease on retry by same device. Enforce both one active lease per device and one device per item transactionally. Sort priority DESC (5, 4, 3), then `received_at` ASC, using the source timestamp of the first-arriving group member; `created_at` and insertion order break ties. The highest-ranked classified item holds its place while preparing audio. Unclassified items do not block known-priority deliveries. Failed entries are skipped. A newly urgent arrival cannot replace an active lease. Never batch audio. A second device cannot claim leased item.
+- DeliveryLease fields: `{lease_id,message_id,device_id,priority,app,sender,spoken_text,audio_url,expires_at,attempt}`. `audio_url` points to `/api/delivery/{lease_id}/audio?device_id=...`. `expires_at` is timezone-qualified ISO UTC. Lease ID is unguessable. Audio is served only for unexpired matching device lease.
+- POST `/api/delivery/{lease_id}/heartbeat` `{device_id}` -> `{delivery:DeliveryLease}` extends active lease. After ACK/expiry reject 409; wrong-device reject 403. Playback client sends heartbeat every 20 s.
+- POST `/api/delivery/{lease_id}/ack` `{device_id,outcome:"played"|"retry"}` -> `{status}`. Played ACK requires active lease; duplicates of SAME completed outcome succeed without advancing next message. Contradictory/stale ACKs cannot mark a newly leased item played. Retry releases for explicit later button attempt; bounded attempts -> failed queue. Expired leases automatically requeue up to limit. Keep opaque ACK receipts to handle lost ACK response; remove content/audio on successful played ACK. No auto-next or auto-speech.
+- GET `/api/delivery/{lease_id}/audio?device_id=...` WAV FileResponse. Bounds and integrity verified before ready. Do not delete audio until playback ACK.
+- POST `/api/messages/{message_id}/retry`: requeue failed classification/TTS or exhausted delivery; bounded call budget still applies. Return `{status}`. Do not invent content for discarded items.
+- GET `/healthz`: `{status:"ok"}` when the queue worker is healthy; HTTP 503 during worker failure/recovery.
+
+No resets required. SQLite durable queue with processing recovery after restart. Lease expiry also works after restart. Deletion for 1–2 removes content/reasons from DB and files; only opaque event-id tombstones and aggregate discarded counter remain. Set SQLite secure_delete; avoid logging payloads. Tests validate semantics, not just response shapes.
+
+Implementation choices: failed provider calls remain explicit failed items, with manual retry; no fabricated GPT result. Hidden content is generic P3 by policy and can bypass the model. Provider-operation cap counts adapter invocations, including demo/macOS and hidden-content handling, as a conservative durable work bound. Completed-event IDs and ACK receipts each retain the newest 10,000 entries. Idempotency is guaranteed within that retained window; aggregate totals are durable independent counters. Live notification modification/removal and source revisions are deferred to later hardware integration, not claimed by this local event-injection API.
+
+Recovery details: a missing WAV on an active lease commits a transition to `failed/audio_missing` and releases that lease before returning 409. A played ACK first commits the logical completion plus a durable cleanup marker. If WAV removal fails it returns a safe 503; duplicate ACK, worker ticks, and restart retry cleanup. Outstanding cleanup counts toward capacity. A retry ACK can return `status:failed` at the attempt limit; the UI must direct the user to the failed item's Retry control rather than implying the main Play button retries that same item. Startup removes abandoned managed `.speech-*` temporary directories. JSON API responses are validated with server/schemas.py models.
+
+Static routes: `/` is the Mac demo; `/showcase/` serves web/showcase/index.html when that other chat has created it. Only web/ is mounted. Do not serve repository root, .env, or runtime data. A future ANCS bridge must disable notification-action commands (including automatic call rejection in upstream demos), while retaining protocol writes needed to request attributes.
+
+## UI behavior (web/)
+
+Plain HTML/CSS/JS served same-origin; no build tools required. Clearly label live GPT vs demo mode and AI speech. Samples for all five levels submit actual content without supplying expected priority to server. Custom form uses NotificationInput fields. Use DOM textContent for notifications, no innerHTML injection. Sample templates can remain visible but received 1–2 notifications are removed after classification; aggregate discard count only.
+
+One main button claims and plays ONE message. Button during playback stops and ACKs retry. No automatically playing next item. Finish ACK only after actual audio `ended`; playback error/abort releases retry. Hold one audio Blob/object URL, revoke on completion, limit download size. Heartbeat while leased. Recover expired/stale leases visibly. Use Web Locks across tabs where available to prevent concurrent playback of same device; fallback visibly disallows competing tabs if possible. Use stable device ID `mac-local` (current single local demo); do not store secrets. Poll state ~2 s, do not claim/preload items automatically. Priority-5 metadata produces visible alert immediately; chime only after browser audio is enabled by a gesture. No speech until main button. Respect user text entry when handling Space. Show fetch/network/provider errors; no fake successful completion.
+
+## Acceptance
+
+All five classes; deletion and no TTS for 1–2; schema rejection; duplicate ingress; simultaneous claim; lost ACK; stale lease; expiry/restart; one WAV at a time; stop/retry; alert before audio ready; key never in frontend; actual hosted classify/TTS smoke test with one synthetic sample and browser playback.

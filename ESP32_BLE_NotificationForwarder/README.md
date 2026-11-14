@@ -94,3 +94,20 @@ forget the device on the iPhone *and* set `#define CLEAR_BONDS_ON_BOOT 1` in `co
 | `[BLE] pairing failed` | stale bond on one side; forget device on iPhone and clear bonds (see above) |
 | `[HTTP] POST failed (-1)` | server unreachable; check `SERVER_URL`, same network, firewall |
 | nothing after `advertising` | iPhone hasn't connected; use nRF Connect/LightBlue |
+
+
+### Long message capture
+
+Message capture now requests up to **4096 UTF-8 bytes** (formerly 200) using
+both bytes of the ANCS length parameter. Reassembly is bounded to 8192 bytes;
+the four-slot notification ring stays bounded. Notification parsing uses static
+scratch storage so the larger message does not exhaust the BLE callback stack.
+The attribute timeout is ten seconds, allowing more fragments. Incomplete UTF-8
+characters at a capture boundary are omitted rather than producing invalid JSON.
+This is a byte limit: emoji consume multiple bytes, and iOS can supply a shorter preview.
+
+Rebuild and flash this firmware to activate the higher capture limit. A server
+deployment alone cannot update the ESP. The server accepts up to 4096 Unicode
+characters and summarizes long previews in its existing classification request.
+
+ANCS byte lengths and fragmented responses follow [Apple's specification](https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Specification/Specification.html).

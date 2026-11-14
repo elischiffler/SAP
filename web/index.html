@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f1e8">
+  <title>SAP · Mac Pager</title>
+  <link rel="stylesheet" href="/styles.css?v=pi-handoff-1">
+  <script src="/app.js?v=pi-handoff-1" type="module"></script>
+</head>
+<body>
+  <main>
+    <div id="alert-announcement" class="screen-reader-only" role="alert"></div>
+    <section class="priority-alert" id="priority-alert" aria-label="Priority 5 alert" hidden>
+      <span class="alert-icon" aria-hidden="true">!</span>
+      <div><strong id="alert-title"></strong><p id="alert-hint"></p></div>
+      <button type="button" class="quiet-button" id="enable-chimes">Enable chime</button>
+    </section>
+    <div class="workspace">
+      <div class="left-column">
+        <section class="player" aria-labelledby="player-title">
+          <div class="player-meta"><h2 id="player-title">Playback</h2><span class="player-state" id="player-state">Standing by</span></div>
+          <button type="button" class="play-button" id="play" aria-keyshortcuts="Space">
+            <span class="play-disc" aria-hidden="true"><i id="play-icon" data-icon="play"></i></span>
+            <span id="play-label">Play next</span>
+          </button>
+          <p class="play-note" id="play-note" role="status">Each press plays one message. <kbd>Space</kbd> also works.</p>
+        </section>
+        <section class="pi-delivery" aria-labelledby="pi-title">
+          <div class="section-heading"><h2 id="pi-title">Pi delivery</h2><span id="pi-connection" class="queue-count">Checking…</span></div>
+          <p id="pi-feedback" class="feedback" role="status"></p>
+          <ul id="pi-transfers" class="pi-transfers" aria-label="Recent Pi deliveries"></ul>
+        </section>
+        <section class="queue" aria-labelledby="queue-title">
+          <div class="section-heading"><h2 id="queue-title">Playback queue</h2><span id="queue-count" class="queue-count">— ready</span></div>
+          <dl class="counts" aria-label="Notification counts">
+            <div><dt>Processing</dt><dd id="count-pending">—</dd></div>
+          </dl>
+          <p id="queue-error" class="feedback" role="status" hidden></p>
+          <p id="state-error" class="feedback" role="status" hidden></p>
+          <ul class="queue-list" id="queue"></ul>
+          <p id="empty" class="empty">Checking the queue…</p>
+        </section>
+      </div>
+      <section class="ingress" aria-labelledby="history-title">
+        <div class="section-heading"><h2 id="history-title">Request history</h2><span class="queue-count" id="ingress-count">—</span></div>
+        <p class="history-note">Latest 1,000 requests, newest first. Payloads expire after two hours.</p>
+        <p id="ingress-feedback" class="feedback" role="status">Loading history…</p>
+        <ol id="ingress-entries" class="ingress-entries" aria-label="Request history"></ol>
+        <div class="history-navigation">
+          <button type="button" class="quiet-button" id="history-newer" disabled>Newer</button>
+          <button type="button" class="quiet-button" id="history-older" disabled>Older</button>
+        </div>
+      </section>
+    </div>
+    <footer class="service-status"><div class="connection" id="connection" role="status" data-state="waiting">Connecting</div><span>ESP notifications</span><span id="classifier">Classifier · Checking</span><span id="speech">Voice · Checking</span><span id="budget">Provider calls · Checking</span></footer>
+  </main>
+</body>
+</html>
