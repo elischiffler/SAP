@@ -4,9 +4,9 @@ Latest recorded deployment verification: November 14, 2026. Dashboard and server
 
 ## Latest recorded release
 
-- Release: `/srv/sap/releases/5afa0b4f793edf6e`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:5afa0b4f793edf6e`, Linux AMD64.
-- Archive SHA256: `5afa0b4f793edf6e11a79697d559de48b383dd2642d4f6960152db1c9d7023d1`.
+- Release: `/srv/sap/releases/893a8c77fa6a5f37`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:893a8c77fa6a5f37`, Linux AMD64.
+- Archive SHA256: `893a8c77fa6a5f37a421cbf70e94d6e05adbbceb514c2f9fc3c14693cc1fd45d`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
@@ -16,12 +16,20 @@ Latest recorded deployment verification: November 14, 2026. Dashboard and server
 
 ## Verification snapshot — November 14, 2026
 
-The latest local artifact, `artifacts/natural-transition-release-verification.json`,
-records release `5afa0b4f793edf6e` from commit
-`0dbc0de15072464a225c7c81ca6d79001d5f42ca`, GitHub/source agreement and **387 passing
-tests**. Its read-only checks returned HTTP 200 with valid JSON for `/healthz`,
-`/api/state` and `/api/pi/status`. This snapshot reports that recorded deployment;
-no new server requests or hardware tests were performed for the documentation update.
+The latest local artifact, `artifacts/content-errors-release-verification.json`,
+records release `893a8c77fa6a5f37` from commit
+`b8d1f50107fc39d53435d68142a8ffba055c7d16` and **409 passing tests**. It records
+HTTP 200 for `/healthz`, `/api/state`, `/api/ingress-log` and `/api/pi/status`.
+The history response included the new errors field and reported zero content
+errors at that check. The local release archive was compared byte-for-byte with
+that commit during this documentation update. No new live requests, paid API
+calls or hardware tests were performed.
+
+Historical snapshot — also November 14, 2026:
+`artifacts/natural-transition-release-verification.json` recorded release
+`5afa0b4f793edf6e`, commit `0dbc0de15072464a225c7c81ca6d79001d5f42ca`, GitHub/source
+agreement and 387 passing tests. Its health/state/Pi-status checks returned HTTP
+200 with valid JSON. That snapshot remains evidence for the earlier release.
 
 The repository now includes a real ALSA Pi client, installer, updater, LED helper,
 systemd unit and download-only diagnostic. See [installation/update instructions](../bridges/pi/README.md)
@@ -30,7 +38,7 @@ validated download; a playback ACK from this client follows successful `aplay`.
 Neither independently establishes physically audible sound.
 
 The earlier `94e5ea7c3360dff8` receipt-verification artifact recorded no recent Pi
-contact and zero transfers. The latest artifact only records endpoint health,
+contact and zero transfers. The latest artifact records endpoint health and history-schema checks,
 not current contact/download counts. Do not treat the older disconnected snapshot
 as a current device-status claim. GPIO, installed device versions, flashed ESP
 firmware and audible speaker output require separate hardware evidence.
@@ -38,6 +46,13 @@ firmware and audible speaker output require separate hardware evidence.
 The feature notes below retain their original release-specific test counts and
 verification scope from November 14, 2026. They are not claims that hardware was
 retested with each newer release.
+
+## Unavailable content and sender labels
+
+Release `893a8c77fa6a5f37` adds content-error reporting to request history and
+cross-platform sender detection. The original accepted payload is retained under
+its existing retention policy. See [content-error behavior](CONTENT_ERRORS.md)
+and the 409-test verification snapshot above. Prior release: `5afa0b4f793edf6e`.
 
 ## Natural follow-up transition
 

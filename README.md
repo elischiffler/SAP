@@ -99,7 +99,7 @@ The EC2 dashboard and playback controls are public by the owner's explicit choic
 node --check web/app.js
 ```
 
-Use Ruff on changed Python files. Automated provider tests use mocks and temporary databases. The latest recorded release on November 14, 2026 has **387 passing tests** and read-only deployment verification; see [release evidence](docs/DEPLOYED.md). Earlier live sample smoke tests are historical and documented in [verification notes](docs/VERIFICATION.md). Do not send live synthetic notifications or consume real queued audio for routine verification.
+Use Ruff on changed Python files. Automated provider tests use mocks and temporary databases. The latest recorded release on November 14, 2026 has **409 passing tests** and read-only deployment verification; see [release evidence](docs/DEPLOYED.md). Earlier live sample smoke tests are historical and documented in [verification notes](docs/VERIFICATION.md). Do not send live synthetic notifications or consume real queued audio for routine verification.
 
 The pager cannot reply, answer calls, or dismiss phone notifications. Hardware wiring, the running ESP firmware and physically audible Pi output require device-side verification; code availability and server health alone do not establish them.
 
