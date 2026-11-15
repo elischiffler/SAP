@@ -26,6 +26,17 @@ class DeviceRule:
 def device_rule(notification: NotificationInput) -> DeviceRule | None:
     app = notification.app.casefold()
     body = event_text(notification.body)
+    if app == "com.apple.findmy" and not notification.content_hidden:
+        title = event_text(notification.title)
+        routine_title = re.fullmatch(r"[1-9][0-9]* devices were left behind", title, re.IGNORECASE)
+        routine_body = re.fullmatch(
+            r"These devices are no longer detected near you\. "
+            r"They were last seen near [^.!?]{1,180}\.", body, re.IGNORECASE,
+        )
+        if routine_title and routine_body and not event_text(notification.subtitle):
+            return DeviceRule(2, "findmy_separation")
+        # Unknown trackers, lost-mode updates and unfamiliar alerts remain classified.
+        return None
     if app in {"com.toyopagroup.picaboo", "snapchat"}:
         if re.fullmatch(r"(?:.{1,120} )?is typing(?:\.{3}|…)?", body, re.IGNORECASE):
             return DeviceRule(1, "typing")

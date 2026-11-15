@@ -4,15 +4,30 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/208b0dcc32963216`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:208b0dcc32963216`, Linux AMD64.
-- Archive SHA256: `208b0dcc32963216b34396d95738ca955a80cfaf8425235e24b5c478e830a520`.
+- Release: `/srv/sap/releases/8bb0d4d797ac63b4`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:8bb0d4d797ac63b4`, Linux AMD64.
+- Archive SHA256: `8bb0d4d797ac63b45060773e13079a92e8f51e063b5d02c2d364e842bc57099e`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Find My separation preference
+
+Routine Find My device-separation reminders are priority 2 by user preference.
+The observed numbered `devices were left behind` title and standard two-sentence
+body are recognized before classification and discarded without GPT/TTS calls.
+The classifier prompt also treats routine separation as passive information;
+unknown trackers, theft, danger and concrete urgent consequences remain evaluated
+on their own evidence. The rule does not mute the entire Find My app.
+
+On startup, matching unsealed standalone queue items are discarded only when
+the original input or retained ESP payload proves the template matches. History
+priority becomes 2, the original payload keeps its normal retention window, and
+orphaned audio is removed. Sealed/active deliveries and missing evidence are left
+alone. All 347 tests passed; live checks submit no synthetic notifications.
 
 ## Messages group-chat identity
 

@@ -182,6 +182,7 @@ class QueueStore:
             self.initialize_history(connection)
             connection.execute("UPDATE messages SET status = 'pending' WHERE status = 'processing'")
             self.reconcile_snapchat(connection)
+            self.reconcile_findmy_separation(connection)
             self.expire_leases(connection, time.time())
             saved_audio = {
                 self.audio_path(row["id"]).name
@@ -428,6 +429,35 @@ class QueueStore:
                    sender=excluded.sender""",
                 (row["id"], row["id"], rule.caller, rule.spoken_text, row["received_at"]),
             )
+
+    def reconcile_findmy_separation(self, connection):
+        """Apply the user's low-priority preference to evidenced, unclaimed alerts."""
+        rows = connection.execute(
+            """SELECT id, input_json FROM messages WHERE lower(app)='com.apple.findmy'
+               AND NOT sealed AND status IN ('pending', 'ready', 'failed')
+               AND (SELECT COUNT(*) FROM group_members WHERE group_id=messages.id) <= 1"""
+        ).fetchall()
+        for row in rows:
+            notification = None
+            try:
+                if row["input_json"]:
+                    notification = NotificationInput.model_validate_json(row["input_json"])
+                else:
+                    history = connection.execute(
+                        "SELECT record_json FROM ingress_history WHERE event_id=? ORDER BY sequence DESC LIMIT 1",
+                        (row["id"],),
+                    ).fetchone()
+                    payload = json.loads(history[0]).get("payload") if history else None
+                    if isinstance(payload, dict):
+                        notification = parse_esp_json(
+                            json.dumps(payload), timezone_name=self.settings.esp_timezone,
+                        )
+            except ValueError:
+                pass
+            rule = device_rule(notification) if notification else None
+            if rule is not None and rule.kind == "findmy_separation":
+                connection.execute("UPDATE ingress_history SET priority=2 WHERE event_id=?", (row["id"],))
+                self.complete(connection, row["id"], "discarded")
 
     def coalesce_calls(self, connection):
         """Replace an unclaimed incoming call with its unambiguous missed update.

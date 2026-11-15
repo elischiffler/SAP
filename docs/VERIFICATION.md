@@ -1,5 +1,14 @@
 # Local verification — November 14, 2026
 
+## Find My separation preference
+
+Release `8bb0d4d797ac63b4`: 347 tests passed. Coverage includes deterministic P2
+routing without paid providers, deduplication, unknown-tracker/other-app/hidden
+content exclusions, startup reconciliation of an old ready alert, history priority
+and payload retention, audio cleanup, repeated restart, and sealed-item protection.
+The user's identified routine separation item is the only live queue target;
+verification submits no notifications and does not claim or acknowledge playback.
+
 ## Messages chat labels — grouping fix
 
 Release `208b0dcc32963216` derives Messages conversation identity from named-chat
