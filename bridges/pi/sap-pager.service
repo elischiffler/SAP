@@ -1,0 +1,31 @@
+[Unit]
+Description=SAP Raspberry Pi button pager
+Wants=network-online.target
+After=network-online.target sound.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=sap-pager
+SupplementaryGroups=audio gpio
+# lgpio creates a notification FIFO in its working directory.
+WorkingDirectory=/var/lib/sap-pager
+ExecStart=/opt/sap-pager/venv/bin/python /opt/sap-pager/client.py
+EnvironmentFile=-/etc/default/sap-pager
+Environment=PYTHONUNBUFFERED=1
+Environment=GPIOZERO_PIN_FACTORY=lgpio
+StateDirectory=sap-pager
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=100
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Do not use PrivateDevices: ALSA and GPIO need the real device nodes.
+
+[Install]
+WantedBy=multi-user.target

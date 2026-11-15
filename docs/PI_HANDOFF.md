@@ -10,6 +10,16 @@ Server URL: **https://sap.elischiffler.dev**. The Pi pulls audio; the server doe
 | `GET /audio/<id>` | Complete `audio/wav` bytes. Reserves a 90-second lease for the single Pi device. Repeated downloads of that same item are safe. A different item cannot be downloaded until it is acknowledged or the lease expires. |
 | `POST /ack` | JSON `{"ids":["<same id>"]}` with Content-Type application/json. Returns 200 after the downloaded item is acknowledged. Retrying the same ACK is idempotent, including across server restarts. |
 
+The updated client is in [`bridges/pi/`](../bridges/pi/README.md). It uses real
+ALSA `aplay` playback and durable ACK recovery. For download confirmation, the
+server also returns `X-Pi-Transfer-ID` with the WAV. Once the Pi has saved,
+fsynced and validated the complete file, it posts `id`, `transfer_id`, `size`
+and `sha256` to `/api/pi/downloaded`. This receipt only confirms the saved file;
+it never replaces the successful-playback `/ack`. The dashboard shows the audio
+message text and confirmation time. Older clients remain compatible but their
+downloads are labeled sent, not confirmed on-device. The earlier stub discussion
+below describes the original supplied spec, not the implemented client.
+
 **LED policy: priority 5 only.** Use the top-level boolean `led_on` from every
 successful status response. It is true while any priority-5 item is pending,
 preparing audio, ready, or awaiting acknowledgment. It includes an urgent item

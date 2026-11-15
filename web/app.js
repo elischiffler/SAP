@@ -305,7 +305,7 @@ async function refreshIngress() {
         const queueStatus = Object.hasOwn(ingressQueueLabels, entry.queue_status)
           ? ingressQueueLabels[entry.queue_status]
           : "";
-        const source = [entry.app, eventId, queueStatus].filter(Boolean).join(" · ");
+        const source = [entry.app_label || entry.app, eventId, queueStatus].filter(Boolean).join(" · ");
         if (source) row.append(createElement("p", "ingress-source", source));
         if (entry.status_code === 202 && entry.payload) {
           const details = createElement("details", "ingress-payload");
@@ -370,18 +370,39 @@ async function refreshPi() {
       : "No Pi contact yet. One message is offered per button press.");
     const labels = {
       downloading: "Sending audio",
-      awaiting_ack: "Audio sent · awaiting Pi acknowledgment",
+      awaiting_ack: "Audio sent · Pi download not yet confirmed",
       acknowledged: "Pi acknowledged completion",
       failed: "Audio transfer failed",
       expired: "Acknowledgment timed out · retry needed",
     };
     const fragment = document.createDocumentFragment();
     for (const transfer of state.transfers) {
-      const row = createElement("li", "", (labels[transfer.status] || transfer.status)
+      const confirmed = transfer.download_confirmed_at;
+      const label = transfer.status === "awaiting_ack" && confirmed
+        ? "Downloaded on Pi · awaiting playback acknowledgment"
+        : (labels[transfer.status] || transfer.status);
+      const row = createElement("li", "", label
         + " · " + transfer.message_id.slice(0, 8)
         + " · " + receivedTimeFormat.format(new Date(transfer.updated_at)));
       row.dataset.status = transfer.status;
+      if (confirmed) {
+        row.append(createElement("p", "pi-receipt", "Pi confirmed saved WAV · "
+          + receivedTimeFormat.format(new Date(confirmed))));
+      }
+      if (transfer.spoken_text) {
+        const details = [transfer.app, transfer.sender,
+          transfer.priority ? "Priority " + transfer.priority : null].filter(Boolean);
+        row.append(createElement("p", "pi-message-meta", details.join(" · ")));
+        row.append(createElement("p", "pi-message-text", transfer.spoken_text));
+      } else {
+        row.append(createElement("p", "pi-message-meta", transfer.status === "acknowledged"
+          ? "Message content removed after playback acknowledgment."
+          : "Message text is no longer available."));
+      }
       fragment.append(row);
+    }
+    if (!state.transfers.length) {
+      fragment.append(createElement("li", "", "No audio transfers yet. A button press downloads one message."));
     }
     byId("pi-transfers").replaceChildren(fragment);
   } catch (error) {

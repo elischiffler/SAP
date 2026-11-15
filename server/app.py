@@ -45,6 +45,7 @@ from .schemas import (
     HeartbeatResponse,
     IngressLogResponse,
     PiAckRequest,
+    PiDownloadRequest,
     RetryResponse,
     StateResponse,
 )
@@ -493,7 +494,23 @@ def create_app(
                 finally:
                     pi_audio_lock.release()
 
-        return TrackedAudio(path, media_type="audio/wav")
+        return TrackedAudio(path, media_type="audio/wav", headers={"X-Pi-Transfer-ID": lease_id})
+
+    @app.post("/api/pi/downloaded")
+    async def pi_downloaded(request: Request):
+        raw = bytearray()
+        async for chunk in request.stream():
+            if len(raw) + len(chunk) > 1024:
+                raise QueueError(413, "The download receipt is too large.")
+            raw.extend(chunk)
+        try:
+            receipt = PiDownloadRequest.model_validate_json(raw)
+        except ValidationError:
+            raise QueueError(422, "Send one valid download receipt.") from None
+        return await database_call(
+            pi.confirm_download, str(receipt.id), str(receipt.transfer_id),
+            receipt.size, receipt.sha256,
+        )
 
     @app.post("/ack")
     async def pi_ack(request: Request):

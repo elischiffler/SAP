@@ -4,16 +4,93 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/af0a6d1a3fb5b8a8`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:af0a6d1a3fb5b8a8`, Linux AMD64.
-- Image ID: `sha256:5ab929e5adcd7fb2e57c6caca729e98409262ba83fd50cf165cbe75e0fc7ab5b`.
-- Archive SHA256: `af0a6d1a3fb5b8a82bdd9b46d25039c7d1bae14f47df05d87818888733f252aa`.
+- Release: `/srv/sap/releases/f840d2f5fc896093`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:f840d2f5fc896093`, Linux AMD64.
+- Archive SHA256: `f840d2f5fc8960932d1c927ad6ac0b30855532d1b6973c32b85f89f76e267b5a`.
+- Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
+  before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
 
-## Priority-5-only LED
+## Phone events and Snapchat typing
+
+Snapchat now uses a strict allowlist: a named sender in `title`, empty `subtitle`,
+no group/conversation metadata, visible content, and the exact body `sent you a
+chat` is P3 with speech “On Snapchat, [sender] sent you a message.” This matches
+the observed individual-chat payload. Group chats observed in production carry
+the group name in `subtitle` and are excluded. With only five ESP fields, this
+is template recognition, not independent proof of conversation membership.
+Unrecognized future formats remain P2 rather than being promoted by the model.
+Typing indicators (including the sender-less body `is typing...`) are P1; all
+other Snapchat alerts are P2. Both P1 and P2 are discarded without provider calls.
+No Snapchat rule produces P4/P5. Other apps retain their existing classification.
+
+Startup reconciles old unsealed, standalone Snapchat queue items using retained
+source payloads. Eligible chats get corrected speech and regenerated audio;
+ineligible or unrecoverable items are discarded. Sealed deliveries and completed
+history are not rewritten. Original accepted payloads remain unchanged. Once
+recognized, eligible chats remain valid after the raw history expires.
+
+314 tests passed for this release; lint and JavaScript syntax checks passed.
+The prior release was `ad76a8cd6b6b41a3`. Live checks are read-only and compare
+the existing queue against the new allowlist without injecting test events or
+playing/acknowledging real notifications. Verification:
+`artifacts/snapchat-direct-release-verification.json`.
+
+Exact Snapchat typing indicators (`com.toyopagroup.picaboo`, body ending in
+`is typing...`/`is typing…`, no additional content) are deterministically priority
+1 and discarded before classification/TTS. Invisible Unicode formatting marks
+are normalized for detection; original history payloads are preserved. The strict
+Snapchat allowlist above supersedes the earlier classifier-based Snapchat policy.
+
+Exact Phone `Incoming Call` and `Missed Call` events are priority 3 and speak
+“Incoming call from [caller]” or “Missed call from [caller]”. The caller comes from
+sender/title, with an unknown-caller fallback. An incoming event is never renamed
+missed without a missed-call event. A uniquely matching pair from the same known
+caller is coalesced while unsealed: source timestamps must be ordered within
+120 seconds and arrivals within 120 seconds. The five-field ESP payload has no
+call ID, so this is a conservative correlation heuristic; ambiguous repeated
+calls, unknown callers and already claimed deliveries are not combined. Speech
+in progress finishes before its queued audio can be replaced. The final message
+is “Missed call from [caller]”, without a group-summary provider call. Both source
+event IDs retain retry deduplication and complete together on playback ACK.
+
+Rules apply to new events, not previously played/discarded history. No Pi or ESP
+update is needed for these rules. 301 tests passed. Deployment verification uses
+read-only requests; no real messages are automatically played or acknowledged.
+Previous release: `94e5ea7c3360dff8`. Verification artifact:
+`artifacts/call-rules-release-verification.json`.
+
+## Pi download receipts
+
+The Pi delivery panel now displays the speech text, source app/sender and priority
+for each retained transfer. It distinguishes audio sent by the server from a WAV
+saved and validated by the updated Pi client. Audio responses include
+`X-Pi-Transfer-ID`; `POST /api/pi/downloaded` accepts `id`, `transfer_id`, `size`
+and `sha256`, verifies the current lease and matching server file, and records a
+separate download-confirmation timestamp. It does not play, ACK, remove or renew
+the message. The client reports only after full WAV validation and file/directory
+fsync. Receipt failure does not produce a false confirmation badge.
+
+Old clients still download/play/ACK but cannot provide this confirmation. Apply
+`bridges/pi/update.sh` on the Pi to activate it; production deployment does not
+install device code. The Pi was disconnected during this deployment, so live
+device confirmation remains pending. Physical speaker output remains unverified.
+Message text is joined from the live queue, not copied into transfer history;
+it disappears when playback acknowledgment removes that content.
+
+283 local tests passed, including legacy-schema migration, checksum and lease
+validation, idempotent download receipts, durable ACK recovery and no ACK after
+download failure. A local browser fixture verified the confirmed-download card
+and speech text. Production verification used GETs only; no notifications were
+injected, downloaded, played or acknowledged. Evidence:
+`artifacts/pi-download-receipt-verification.json`. Prior release:
+`c7fd271c23e6eeec`. The temporary transaction-consistent migration backup was
+removed after successful health and schema verification.
+
+## Priority-5-only LED behavior
 
 `GET /status` now includes boolean `led_on`, independent of its single advertised
 audio item. It is true only for priority-5 items pending/preparing/ready/leased,
@@ -46,6 +123,8 @@ ESP ingress remains `POST /api/esp/notifications` with the existing bearer token
 Pi routes are HTTPS `GET /status`, `GET /audio/<id>`, and `POST /ack`. At most one item is advertised and transferred; one button press handles one item. See [Pi handoff](PI_HANDOFF.md), including the priority-5-only `led_on` flag and Pi GPIO integration instructions. The Pi delivery panel distinguishes recent contact, sending, waiting for acknowledgment, acknowledged completion, interrupted transfer and expiry. No Pi has contacted the adapter at verification; GPIO, actual device code and speaker output remain unverified.
 
 ## Request history
+
+History source labels use the shared 92-app mapping. Messages is labeled `Text message / SMS`; the app identifier alone does not distinguish SMS from iMessage. A derived `app_label` is supplied when reading history, including old records. Original `app` metadata and raw payloads remain unchanged; unknown apps retain their identifier.
 
 The right-hand history is independently scrollable. It retains the latest 1,000 records in SQLite, with 50 per page and Newer/Older navigation. Each request keeps its own priority and original accepted payload keys/values, including local ANCS date and Unicode. Generated event IDs and queue status are separate metadata. Secret values are redacted and labeled. Invalid/rejected bodies and authorization headers are excluded.
 

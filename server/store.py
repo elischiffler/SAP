@@ -9,8 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from contracts.app_names import request_app_label
+from contracts.esp import parse_esp_json
 from contracts.models import ClassificationResult, NotificationGroup, NotificationInput
 from contracts.settings import Settings
+from intelligence.notification_rules import device_rule
 
 STATE_LIMIT = 100
 HISTORY_LIMIT = 10_000
@@ -178,6 +181,7 @@ class QueueStore:
             self.backfill_pending_keys(connection)
             self.initialize_history(connection)
             connection.execute("UPDATE messages SET status = 'pending' WHERE status = 'processing'")
+            self.reconcile_snapchat(connection)
             self.expire_leases(connection, time.time())
             saved_audio = {
                 self.audio_path(row["id"]).name
@@ -322,6 +326,13 @@ class QueueStore:
             ).fetchone()
             if existing:
                 return "pending" if existing["status"] == "processing" else existing["status"]
+            rule = device_rule(notification)
+            if rule is not None and rule.priority <= 2:
+                connection.execute(
+                    "UPDATE ingress_history SET priority=? WHERE event_id=?", (rule.priority, event_id)
+                )
+                self.complete(connection, event_id, "discarded")
+                return "discarded"
             total = connection.execute(
                 """SELECT (SELECT COUNT(*) FROM messages WHERE priority IS NULL)
                         + (SELECT COUNT(*) FROM group_members)
@@ -343,7 +354,120 @@ class QueueStore:
                     grouping_key(notification),
                 ),
             )
+            if rule is not None:
+                key = json.dumps(("phone-call", rule.kind, rule.caller_key)) if rule.caller_key else None
+                if rule.kind == "snapchat_chat":
+                    key = '["snapchat-direct-v1"]'
+                connection.execute(
+                    """UPDATE messages SET priority=3, spoken_text=?, sender=?, input_json=NULL,
+                       group_key=? WHERE id=?""", (rule.spoken_text, rule.caller, key, event_id)
+                )
+                connection.execute(
+                    "INSERT INTO group_members VALUES (?, ?, ?, 3, ?, ?)",
+                    (event_id, event_id, rule.caller, rule.spoken_text,
+                     notification.received_at.timestamp()),
+                )
+                connection.execute(
+                    "UPDATE ingress_history SET priority=3 WHERE event_id=?", (event_id,)
+                )
+                if rule.kind in {"incoming", "missed"}:
+                    self.coalesce_calls(connection)
         return "pending"
+
+    def reconcile_snapchat(self, connection):
+        """Apply the allowlist to old unclaimed standalone items during startup.
+
+        Never resurrect completed events or rewrite a sealed delivery. Original
+        accepted payloads remain unchanged. Missing/expired evidence is ineligible.
+        """
+        rows = connection.execute(
+            """SELECT * FROM messages WHERE lower(app) IN ('com.toyopagroup.picaboo', 'snapchat')
+               AND NOT sealed AND status IN ('pending', 'ready', 'failed')
+               AND (SELECT COUNT(*) FROM group_members WHERE group_id=messages.id) <= 1"""
+        ).fetchall()
+        for row in rows:
+            if row["group_key"] == '["snapchat-direct-v1"]':
+                continue
+            notification = None
+            try:
+                if row["input_json"]:
+                    notification = NotificationInput.model_validate_json(row["input_json"])
+                else:
+                    history = connection.execute(
+                        "SELECT record_json FROM ingress_history WHERE event_id=? ORDER BY sequence DESC LIMIT 1",
+                        (row["id"],),
+                    ).fetchone()
+                    if history:
+                        payload = json.loads(history[0]).get("payload")
+                        if isinstance(payload, dict):
+                            notification = parse_esp_json(
+                                json.dumps(payload), timezone_name=self.settings.esp_timezone,
+                            )
+            except ValueError:
+                pass
+            rule = device_rule(notification) if notification else None
+            priority = rule.priority if rule else 2
+            connection.execute("UPDATE ingress_history SET priority=? WHERE event_id=?",
+                               (priority, row["id"]))
+            if priority <= 2:
+                self.complete(connection, row["id"], "discarded")
+                continue
+            if row["priority"] == 3 and row["spoken_text"] == rule.spoken_text:
+                connection.execute("UPDATE messages SET group_key=? WHERE id=?",
+                                   ('["snapchat-direct-v1"]', row["id"]))
+                continue
+            connection.execute(
+                """UPDATE messages SET status='pending', priority=3, spoken_text=?, sender=?,
+                   input_json=NULL, group_key='["snapchat-direct-v1"]', needs_summary=0, reserved_operations=0,
+                   not_before=0, error=NULL WHERE id=?""",
+                (rule.spoken_text, rule.caller, row["id"]),
+            )
+            connection.execute(
+                """INSERT INTO group_members VALUES (?, ?, ?, 3, ?, ?)
+                   ON CONFLICT(event_id) DO UPDATE SET priority=3, spoken_text=excluded.spoken_text,
+                   sender=excluded.sender""",
+                (row["id"], row["id"], rule.caller, rule.spoken_text, row["received_at"]),
+            )
+
+    def coalesce_calls(self, connection):
+        """Replace an unclaimed incoming call with its unambiguous missed update.
+
+        The five-field ESP contract has no call ID. Require the same known caller,
+        ordered source timestamps within two minutes, and nearby arrival times.
+        Never merge two different calls, already sealed audio, or ambiguous pairs.
+        """
+        rows = connection.execute(
+            """SELECT * FROM messages WHERE NOT sealed AND status IN ('pending', 'ready')
+               AND group_key LIKE '["phone-call", %'
+               AND (SELECT COUNT(*) FROM group_members WHERE group_id=messages.id)=1"""
+        ).fetchall()
+        incoming = [row for row in rows if json.loads(row["group_key"])[1] == "incoming"]
+        missed = [row for row in rows if json.loads(row["group_key"])[1] == "missed"]
+
+        def matches(first, last):
+            return (json.loads(first["group_key"])[2] == json.loads(last["group_key"])[2]
+                    and 0 <= last["received_at"] - first["received_at"] <= 120
+                    and abs(last["created_at"] - first["created_at"]) <= 120)
+
+        for last in missed:
+            candidates = [first for first in incoming if matches(first, last)]
+            if len(candidates) != 1:
+                continue
+            first = candidates[0]
+            if sum(matches(first, candidate) for candidate in missed) != 1:
+                continue
+            connection.execute(
+                """UPDATE messages SET status='pending', spoken_text=?, group_key=?,
+                   needs_summary=0, reserved_operations=0, not_before=0, error=NULL WHERE id=?""",
+                (last["spoken_text"], last["group_key"], first["id"]),
+            )
+            connection.execute("UPDATE group_members SET group_id=? WHERE group_id=?",
+                               (first["id"], last["id"]))
+            connection.execute("DELETE FROM messages WHERE id=?", (last["id"],))
+            # Both old WAVs are now unclaimable; only fresh missed-call speech is served.
+            for message_id in (first["id"], last["id"]):
+                with suppress(OSError):
+                    self.audio_path(message_id).unlink(missing_ok=True)
 
     def event_statuses(self, event_ids: list[str]) -> dict[str, str]:
         if not event_ids:
@@ -434,6 +558,7 @@ class QueueStore:
         entries = []
         for row in rows[:limit]:
             entry = json.loads(row["record_json"])
+            entry["app_label"] = request_app_label(entry["app"]) if entry.get("app") else None
             entry["sequence"] = row["sequence"]
             entry["priority"] = row["priority"]
             status = row["current_status"]
@@ -451,6 +576,7 @@ class QueueStore:
         with self.transaction() as connection:
             now = time.time()
             self.expire_leases(connection, now)
+            self.coalesce_calls(connection)
             remaining = self.settings.max_provider_calls - self.provider_calls(connection)
             if remaining <= 0:
                 connection.execute(

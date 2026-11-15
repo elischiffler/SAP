@@ -1,5 +1,6 @@
 """Pi MVP adapter: one advertised item, one lease, explicit acknowledgment."""
 
+import hashlib
 import sqlite3
 import time
 from contextlib import closing
@@ -33,6 +34,10 @@ class PiDelivery:
     def initialize(self):
         with closing(sqlite3.connect(self.store.path)) as connection:
             connection.executescript(PI_SCHEMA)
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(pi_transfers)")}
+            if "download_confirmed_at" not in columns:
+                connection.execute("ALTER TABLE pi_transfers ADD COLUMN download_confirmed_at REAL")
+            connection.commit()
 
     @staticmethod
     def touch(connection, *, poll=False):
@@ -79,7 +84,8 @@ class PiDelivery:
                    VALUES (?, ?, 'downloading', ?)
                    ON CONFLICT(message_id) DO UPDATE SET lease_id=excluded.lease_id,
                      status='downloading', updated_at=excluded.updated_at,
-                     downloaded_at=NULL, acknowledged_at=NULL, error=NULL""",
+                     downloaded_at=NULL, acknowledged_at=NULL, download_confirmed_at=NULL,
+                     error=NULL""",
                 (message_id, delivery["lease_id"], time.time()),
             )
             connection.execute(
@@ -103,6 +109,36 @@ class PiDelivery:
                     lease_id,
                 ),
             )
+
+    def confirm_download(self, message_id: str, transfer_id: str, size: int, sha256: str) -> dict:
+        """A receipt for a validated local file; never completes or extends playback."""
+        with self.store.transaction() as connection:
+            transfer = connection.execute(
+                "SELECT * FROM pi_transfers WHERE message_id=?", (message_id,)
+            ).fetchone()
+            if (transfer is None or transfer["lease_id"] != transfer_id
+                    or transfer["status"] != "awaiting_ack"):
+                raise QueueError(409, "No matching completed Pi transfer.")
+            lease = self.store.require_active(connection, transfer_id, PI_DEVICE, time.time())
+            if lease["message_id"] != message_id:
+                raise QueueError(409, "The download receipt does not match the active item.")
+            path = self.store.audio_path(message_id)
+            try:
+                if path.stat().st_size != size:
+                    raise QueueError(409, "Downloaded audio size does not match.")
+                with path.open("rb") as file:
+                    digest = hashlib.file_digest(file, "sha256").hexdigest()
+            except OSError:
+                raise QueueError(409, "The audio is no longer available.") from None
+            if digest != sha256:
+                raise QueueError(409, "Downloaded audio checksum does not match.")
+            now = time.time()
+            self.touch(connection)
+            connection.execute(
+                """UPDATE pi_transfers SET download_confirmed_at=COALESCE(download_confirmed_at, ?),
+                   updated_at=? WHERE message_id=?""", (now, now, message_id)
+            )
+        return {"status": "download_confirmed", "id": message_id}
 
     def acknowledge(self, message_id: str) -> dict:
         with self.store.transaction() as connection:
@@ -135,8 +171,10 @@ class PiDelivery:
         with self.store.transaction() as connection:
             device = connection.execute("SELECT * FROM pi_device WHERE id=1").fetchone()
             rows = connection.execute(
-                """SELECT t.*, l.expires_at FROM pi_transfers t LEFT JOIN delivery_leases l
-                   ON l.id=t.lease_id ORDER BY t.updated_at DESC LIMIT 10"""
+                """SELECT t.*, l.expires_at, m.spoken_text, m.app, m.sender, m.priority
+                   FROM pi_transfers t LEFT JOIN delivery_leases l ON l.id=t.lease_id
+                   LEFT JOIN messages m ON m.id=t.message_id
+                   ORDER BY t.updated_at DESC LIMIT 10"""
             ).fetchall()
         transfers = []
         for row in rows:
@@ -149,6 +187,12 @@ class PiDelivery:
                 {
                     "message_id": row["message_id"],
                     "status": status,
+                    "spoken_text": row["spoken_text"],
+                    "app": row["app"],
+                    "sender": row["sender"],
+                    "priority": row["priority"],
+                    "download_confirmed_at": utc_iso(row["download_confirmed_at"])
+                    if row["download_confirmed_at"] else None,
                     "updated_at": utc_iso(row["updated_at"]),
                     "downloaded_at": utc_iso(row["downloaded_at"])
                     if row["downloaded_at"]

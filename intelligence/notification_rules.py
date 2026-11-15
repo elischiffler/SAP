@@ -1,0 +1,56 @@
+"""Exact device-event rules, applied before probabilistic classification."""
+
+import re
+import unicodedata
+from dataclasses import dataclass
+
+from contracts import NotificationInput
+
+from .formatting import _source_label
+
+
+def event_text(value: str) -> str:
+    # ANCS labels may contain invisible direction/formatting marks.
+    return " ".join("".join(c for c in value if unicodedata.category(c) != "Cf").split())
+
+
+@dataclass(frozen=True)
+class DeviceRule:
+    priority: int
+    kind: str
+    spoken_text: str | None = None
+    caller: str | None = None
+    caller_key: str | None = None
+
+
+def device_rule(notification: NotificationInput) -> DeviceRule | None:
+    app = notification.app.casefold()
+    body = event_text(notification.body)
+    if app in {"com.toyopagroup.picaboo", "snapchat"}:
+        if re.fullmatch(r"(?:.{1,120} )?is typing(?:\.{3}|…)?", body, re.IGNORECASE):
+            return DeviceRule(1, "typing")
+        sender = event_text(notification.title)
+        if (body.casefold() == "sent you a chat" and sender
+                and sender.casefold() not in {"snapchat", "unknown", "unknown sender"}
+                and not event_text(notification.subtitle)
+                and not notification.conversation_id and not notification.conversation_name
+                and not notification.content_hidden):
+            label = _source_label(sender, 120)
+            return DeviceRule(3, "snapchat_chat", f"On Snapchat, {label} sent you a message.", label)
+        # Only the observed one-to-one chat template is eligible for speech.
+        # Unknown/new formats fail closed rather than being promoted by the LLM.
+        return DeviceRule(2, "snapchat_other")
+    if app != "com.apple.mobilephone" or notification.content_hidden:
+        return None
+    kind = {"incoming call": "incoming", "missed call": "missed"}.get(body.casefold())
+    if kind is None:
+        return None
+    caller = event_text(notification.sender or notification.title)
+    if caller.casefold() in {"", "phone", "incoming call", "missed call", "unknown",
+                            "unknown caller", "no caller id"}:
+        caller = ""
+    label = _source_label(caller, 120) if caller else "an unknown caller"
+    return DeviceRule(
+        3, kind, f"{'Missed' if kind == 'missed' else 'Incoming'} call from {label}.",
+        label if caller else None, caller.casefold() if caller else None,
+    )

@@ -14,6 +14,13 @@ class PiAckRequest(Contract):
     ids: Annotated[list[UUID], Field(min_length=1, max_length=1)]
 
 
+class PiDownloadRequest(Contract):
+    id: UUID
+    transfer_id: UUID
+    size: Annotated[int, Field(strict=True, gt=0, le=5 * 1024 * 1024)]
+    sha256: Annotated[str, StringConstraints(strict=True, pattern=r"^[0-9a-f]{64}$")]
+
+
 class DeviceRequest(Contract):
     device_id: DeviceId
 
@@ -42,6 +49,7 @@ class IngressLogEntry(Contract):
     duration_ms: Annotated[float, Field(ge=0)]
     event_id: UUID | None = None
     app: Annotated[str, Field(max_length=100)] | None = None
+    app_label: Annotated[str, Field(max_length=100)] | None = None
     sender: Annotated[str, Field(max_length=120)] | None = None
     preview: Annotated[str, Field(max_length=160)] | None = None
     # Only accepted, size-limited request bodies are captured; no server defaults are added.

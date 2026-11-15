@@ -1,10 +1,12 @@
 import asyncio
+import hashlib
 import sqlite3
 import wave
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
 import httpx
+import pytest
 from starlette.responses import FileResponse
 
 from contracts import ClassificationResult, Settings
@@ -212,3 +214,72 @@ def test_pi_gpio_adapter_never_lights_for_count_or_connection_errors():
     ):
         update_led(led, status)
         assert led.lit is False
+
+
+async def test_pi_receipt_confirms_saved_wav_without_playback_ack(tmp_path):
+    async with connect(tmp_path) as c:
+        event = await enqueue(c, 3)
+        audio = await c.get("/audio/" + event)
+        dashboard = (await c.get("/api/pi/status")).json()["transfers"][0]
+        assert dashboard["spoken_text"]
+        assert dashboard["app"] == "Messages"
+        assert dashboard["download_confirmed_at"] is None
+        receipt = {
+            "id": event, "transfer_id": audio.headers["x-pi-transfer-id"],
+            "size": len(audio.content), "sha256": hashlib.sha256(audio.content).hexdigest(),
+        }
+        assert (await c.post("/api/pi/downloaded", json=receipt)).json() == {
+            "status": "download_confirmed", "id": event,
+        }
+        first = (await c.get("/api/pi/status")).json()["transfers"][0]
+        assert first["status"] == "awaiting_ack"
+        assert first["download_confirmed_at"] is not None
+        assert (await c.get("/status")).json()["items"][0]["id"] == event
+        assert (await c.get("/api/state")).json()["counts"]["played"] == 0
+        assert (await c.post("/api/pi/downloaded", json=receipt)).status_code == 200
+        assert (await c.get("/api/pi/status")).json()["transfers"][0]["download_confirmed_at"] == first["download_confirmed_at"]
+    async with connect(tmp_path) as c:
+        assert (await c.get("/api/pi/status")).json()["transfers"][0]["download_confirmed_at"]
+        assert (await c.post("/ack", json={"ids": [event]})).status_code == 200
+        done = (await c.get("/api/pi/status")).json()["transfers"][0]
+        assert done["status"] == "acknowledged"
+        assert done["spoken_text"] is None  # No new long-lived copy of message content.
+        assert (await c.post("/api/pi/downloaded", json=receipt)).status_code == 409
+
+
+@pytest.mark.parametrize("bad_field", ["id", "transfer_id", "size", "sha256", "expired"])
+async def test_pi_receipt_rejects_wrong_or_expired_transfer(tmp_path, bad_field):
+    async with connect(tmp_path) as c:
+        event = await enqueue(c, 4)
+        audio = await c.get("/audio/" + event)
+        receipt = {
+            "id": event, "transfer_id": audio.headers["x-pi-transfer-id"],
+            "size": len(audio.content), "sha256": hashlib.sha256(audio.content).hexdigest(),
+        }
+        if bad_field in ("id", "transfer_id"):
+            receipt[bad_field] = str(uuid4())
+        elif bad_field == "size":
+            receipt[bad_field] += 1
+        elif bad_field == "sha256":
+            receipt[bad_field] = "0" * 64
+        else:
+            with sqlite3.connect(tmp_path / "pager.sqlite3") as db:
+                db.execute("UPDATE delivery_leases SET expires_at=0")
+        assert (await c.post("/api/pi/downloaded", json=receipt)).status_code == 409
+        assert (await c.get("/api/pi/status")).json()["transfers"][0]["download_confirmed_at"] is None
+        assert (await c.get("/api/state")).json()["counts"]["played"] == 0
+
+
+async def test_pi_receipt_limits_and_legacy_schema_upgrade(tmp_path):
+    async with connect(tmp_path) as c:
+        for body in ({}, {"id": "invalid"}):
+            assert (await c.post("/api/pi/downloaded", json=body)).status_code == 422
+        assert (await c.post("/api/pi/downloaded", content=b"x" * 1025)).status_code == 413
+        event = await enqueue(c, 3)
+        await c.get("/audio/" + event)
+    with sqlite3.connect(tmp_path / "pager.sqlite3") as db:
+        db.execute("ALTER TABLE pi_transfers DROP COLUMN download_confirmed_at")
+    async with connect(tmp_path) as c:
+        transfer = (await c.get("/api/pi/status")).json()["transfers"][0]
+        assert transfer["message_id"] == event
+        assert transfer["download_confirmed_at"] is None

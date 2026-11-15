@@ -129,5 +129,7 @@ kbd { font: inherit; border: 1px solid #8b7a69; padding: 0 .35em; border-radius:
 
 .pi-transfers { list-style: none; padding: 0; margin: 10px 0 0; }
 .pi-transfers li { padding: 8px 0; border-top: 1px solid var(--border); font-size: .84rem; }
+.pi-message-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; color: var(--ink); line-height: 1.5; }
+.pi-message-meta, .pi-receipt { margin: 6px 0; font-size: .78rem; }
 .pi-transfers li[data-status="acknowledged"] { color: #354b30; }
 .pi-transfers li[data-status="failed"], .pi-transfers li[data-status="expired"] { color: #903923; }

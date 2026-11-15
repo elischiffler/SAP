@@ -103,3 +103,11 @@ APP_NAMES = {
 
 def display_app_name(app: str) -> str:
     return APP_NAMES.get(app.strip().casefold(), app)
+
+
+def request_app_label(app: str) -> str:
+    """Human-readable history label; the wire identifier remains untouched."""
+    if app.strip().casefold() == "com.apple.mobilesms":
+        # ANCS identifies Messages, but does not distinguish SMS from iMessage.
+        return "Text message / SMS"
+    return display_app_name(app)
