@@ -225,3 +225,102 @@ async def test_incomplete_preview_hint_is_metadata_not_spoken_warning(monkeypatc
     digest = await build_group_summarizer(settings()).summarize(notification_group)
     assert "incomplete" not in digest.lower()
     assert "feedback on the hackathon podcast app" in digest
+
+
+def mixed_group():
+    value = group(count=4, sender="Eli")
+    ordered = sorted(value.members, key=lambda m: m.received_at)
+    for member, priority, preview in zip(ordered, [5, 3, 5, 3], [
+        "Call me now.", "Dinner is at eight.", "Bring the first aid kit.", "Jordan is coming too."
+    ], strict=True):
+        member.priority = priority
+        member.spoken_text = preview
+    return value
+
+
+def mixed_result(**overrides):
+    return {
+        "urgent_summary": "Call Eli now and bring the first aid kit.",
+        "other_summary": "Dinner is at eight and Jordan is coming too.",
+        "urgent_indexes": [0, 2], "other_indexes": [1, 3], **overrides,
+    }
+
+
+async def test_mixed_summary_preserves_both_tiers_in_order(monkeypatch):
+    def handle(request):
+        data = json.loads(request.content)
+        payload = json.loads(data["input"][0]["content"])
+        assert [n["priority"] for n in payload["notifications"]] == [5, 3, 5, 3]
+        assert [n["index"] for n in payload["notifications"]] == [0, 1, 2, 3]
+        assert "lower priority" in data["instructions"]
+        assert "cancellations and resolutions" in data["instructions"]
+        assert payload["section_character_limit"] > 80
+        assert set(data["text"]["format"]["schema"]["required"]) == set(mixed_result())
+        return response(json.dumps(mixed_result()))
+
+    mock_openai(monkeypatch, handle)
+    digest = await build_group_summarizer(settings()).summarize(mixed_group())
+    assert digest == (
+        "Urgent messages from Eli on Messages. 4 notifications: "
+        "Call Eli now and bring the first aid kit. They also said: "
+        "Dinner is at eight and Jordan is coming too."
+    )
+
+
+@pytest.mark.parametrize("overrides", [
+    {"other_summary": ""}, {"other_summary": "   "},
+    {"other_summary": "x" * 200}, {"urgent_summary": "x" * 200},
+    {"other_summary": "Dinner..."},
+    {"other_indexes": [1]}, {"other_indexes": [1, 1, 3]},
+    {"other_indexes": [0, 3]}, {"urgent_indexes": [0]},
+    {"urgent_indexes": [True, 2]},
+])
+async def test_mixed_summary_rejects_missing_tier_or_bad_coverage(monkeypatch, overrides):
+    mock_openai(monkeypatch, lambda request: response(json.dumps(mixed_result(**overrides))))
+    with pytest.raises(ProviderError) as failure:
+        await build_group_summarizer(settings()).summarize(mixed_group())
+    assert failure.value.code == "summary_invalid"
+
+
+async def test_mixed_summary_bounds_both_sections_with_fifty_members(monkeypatch):
+    from intelligence.group_summary import _mixed_limit
+
+    value = group(app="A" * 100, sender="B" * 120, count=50)
+    value.conversation_name = "C" * 120
+    ordered = sorted(value.members, key=lambda m: m.received_at)
+    for i, member in enumerate(ordered):
+        member.priority = 5 if i % 2 == 0 else 4
+    limit = _mixed_limit(value)
+    result = mixed_result(urgent_summary="u" * limit, other_summary="o" * limit,
+                          urgent_indexes=list(range(0, 50, 2)),
+                          other_indexes=list(range(1, 50, 2)))
+    mock_openai(monkeypatch, lambda request: response(json.dumps(result)))
+    digest = await build_group_summarizer(settings()).summarize(value)
+    assert len(digest) <= 350
+    assert "o" * limit in digest
+    assert "u" * limit in digest
+
+
+@pytest.mark.parametrize("priority", [3, 4, 5])
+async def test_uniform_priority_keeps_original_summary_format(monkeypatch, priority):
+    value = group()
+    for member in value.members:
+        member.priority = priority
+
+    def handle(request):
+        data = json.loads(request.content)
+        assert data["text"]["format"]["schema"]["required"] == ["summary"]
+        return response(json.dumps({"summary": "Dinner is at eight."}))
+
+    mock_openai(monkeypatch, handle)
+    digest = await build_group_summarizer(settings()).summarize(value)
+    assert digest.endswith("Dinner is at eight.")
+    assert "They also said" not in digest
+
+
+async def test_demo_mixed_summary_includes_both_sections():
+    digest = await build_group_summarizer(settings(classifier_provider="demo")).summarize(
+        mixed_group()
+    )
+    assert "They also said:" in digest
+    assert len(digest) <= 350

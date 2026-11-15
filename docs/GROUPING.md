@@ -42,7 +42,7 @@ and unknown senders use “Urgent notification on [app]”. Prefixes are supplie
 the formatter, not inferred by the speech model. The original length bounds,
 redaction, hidden-preview handling and classification priorities remain unchanged.
 
-The final model sees chronological factual per-message digests, including sender, priority, and receipt time. These preserve relevant details from the full classifier input, including details beyond the solo preview's 350-character limit. The final digest has at most 200 characters; the app supplies and validates the count and source prefix. The instructions prioritize actions, changed plans, deadlines, danger, uncertainty, and negation, and direct listeners to the phone if more actionable details will not fit.
+The final model sees chronological factual per-message digests, including sender, priority, and receipt time. These preserve relevant details from the full classifier input, including details beyond the solo preview's 350-character limit. For groups without a mix of P5 and lower priorities, the final digest has at most 200 characters; the app supplies and validates the count and source prefix. The instructions prioritize actions, changed plans, deadlines, danger, uncertainty, and negation, and direct listeners to the phone if more actionable details will not fit.
 
 Compression and classification can make mistakes. This is a brief, not a complete transcript, and important-information recall has not been established by a large evaluation. Context is shared within each ten-message classification batch; earlier batches are not a persistent conversation memory. Corrections can therefore still be misinterpreted across batch boundaries. Generated summaries must not be advertised as emergency-reliable.
 
@@ -59,3 +59,20 @@ A simulated fifty-message burst produced five classification batches, one summar
 The durable provider counter counts adapter operations, including a batch as one operation and including local demo operations. Input capacity counts original notifications, even after grouping. Defaults: one worker, 100 outstanding notifications, 50 per group, 10 per classification call, 45 seconds/5 MB per WAV, five delivery attempts. Beyond a group's size limit, another group is created; no message is silently dropped to make a summary fit. Ingress beyond the queue limit is rejected with HTTP 429 for the sender to handle.
 
 Completed-event IDs and delivery receipts each retain the newest 10,000 entries. Retrying an event older than that window can treat it as new. Played/discarded aggregate counts remain durable after history pruning.
+
+### Mixed-priority spoken summaries
+
+Groups containing both P5 and P3/P4 messages require two summaries: urgent facts
+first, followed by “They also said:” and the lower-priority updates. Each tier
+gets an equal character budget within the existing 350-character total speech
+limit, including the source introduction. The model sees the full chronological
+conversation so later corrections or resolutions still apply across tiers.
+
+Both sections must be nonempty and declare the complete, nonduplicated set of
+message indexes from their tier. Missing coverage or oversized sections fail
+validation instead of silently truncating the ordinary updates. Index coverage
+is a structural check, not a guarantee of model semantic accuracy. Repetitions
+may combine; long conversations still direct listeners to their phones for
+remaining details. The 50-notification cap and audio limits are unchanged.
+This applies to newly generated summaries; existing downloaded or played audio
+is not rewritten. P3/P4-only and P5-only summaries keep their existing format.

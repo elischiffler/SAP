@@ -4,15 +4,32 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/4bf6aee4618c02c6`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:4bf6aee4618c02c6`, Linux AMD64.
-- Archive SHA256: `4bf6aee4618c02c6e600792156e4e74312fde1322e82493b1704fffd235c42ba`.
+- Release: `/srv/sap/releases/a0da0f39ed5c5101`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:a0da0f39ed5c5101`, Linux AMD64.
+- Archive SHA256: `a0da0f39ed5c51010e7d482904857f23d7d97a0e2cbdb1e4082ff0327e354346`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Mixed-priority summaries
+
+Newly generated mixed P5/P3/P4 group summaries include urgent updates first,
+then “They also said:” and the lower-priority updates. Both sections have
+reserved space within the existing 350-character speech limit. Validation
+requires nonempty sections and complete per-tier message-index coverage; it
+rejects missing coverage or oversized sections. This checks structure, not
+semantic fidelity. Later corrections across tiers remain part of the prompt.
+Uniform-priority summaries retain their existing format. Existing generated
+or downloaded audio is not rewritten, and played messages are not restored.
+
+385 local tests passed using mocked providers, including four-message mixed
+priority coverage, invalid responses, 50-member length bounds, and unchanged
+uniform-priority formatting. Prior release: `4bf6aee4618c02c6`.
+Production verification is read-only, with no synthetic notifications or audio
+playback/acknowledgment. Evidence: `artifacts/mixed-summary-release-verification.json`.
 
 ## Urgent P5 speech
 
