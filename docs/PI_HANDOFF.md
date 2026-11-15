@@ -1,62 +1,68 @@
 # Raspberry Pi handoff
 
-Server URL: **https://sap.elischiffler.dev**. The Pi pulls audio; the server does not need the Pi's IP address. Use HTTPS with normal certificate verification. This uses the same public demo access as the dashboard; the ESP ingestion token remains required only for notification ingestion.
+Server URL: **https://sap.elischiffler.dev**. The Pi initiates HTTPS requests with certificate verification; EC2 needs no Pi IP address, and the devices need not share Wi-Fi. Pi routes use the owner's public demo access. The ESP ingestion token is only for notification ingestion.
 
-## API matching the MVP spec
+## Install or update the implemented client
+
+Follow [`bridges/pi/README.md`](../bridges/pi/README.md). The directory contains the real `client.py`, GPIO helper `led.py`, installer, updater, systemd unit, configuration template and `download_only.py` diagnostic.
+
+- First installation on Raspberry Pi OS: copy that directory to the Pi and run `sudo bash install.sh` there. It refuses to overwrite an existing installation.
+- Existing `sap-pager.service`: follow the documented `update.sh` procedure. It preserves GPIO/audio settings and the pending playback acknowledgment.
+- Configuration lives in `/etc/default/sap-pager`; state and rotating logs live in `/var/lib/sap-pager`.
+- Expected wiring uses BCM GPIO17 for the button (pull-up, 50 ms debounce) and GPIO27 for the LED through a 220-ohm resistor. Preserve the actual device's configured wiring.
+
+The implemented client already imports the LED helper; no separate `main.py` integration is needed. A custom older client must adopt the contract below or be replaced deliberately. Deploying EC2 does not install or update Pi software.
+
+Playback uses ALSA `aplay` and the configured/default ALSA device. A Pi Zero 2 W needs an attached, configured audio output. Installing the client does not configure an absent speaker or prove sound was heard.
+
+## API contract
 
 | Request | Result |
 | --- | --- |
-| `GET /status` | `{"items":[{"id":"<notification UUID>","priority":5}],"led_on":true}` or `{"items":[],"led_on":false}`. At most one item. Polling does not reserve or delete it. |
-| `GET /audio/<id>` | Complete `audio/wav` bytes. Reserves a 90-second lease for the single Pi device. Repeated downloads of that same item are safe. A different item cannot be downloaded until it is acknowledged or the lease expires. |
-| `POST /ack` | JSON `{"ids":["<same id>"]}` with Content-Type application/json. Returns 200 after the downloaded item is acknowledged. Retrying the same ACK is idempotent, including across server restarts. |
+| `GET /status` | `{"items":[{"id":"<UUID>","priority":5}],"led_on":true}` or an empty items list. At most one item; polling neither reserves nor deletes it. |
+| `GET /audio/<id>` | Complete `audio/wav` plus `X-Pi-Transfer-ID`. Claims a 90-second lease. Repeated downloads of that same item are allowed; a different item waits until ACK or lease expiry. Range requests are rejected. |
+| `POST /api/pi/downloaded` | JSON `{"id":"<UUID>","transfer_id":"<lease UUID>","size":12345,"sha256":"<hex digest>"}` after complete validation and fsync. The server validates the active transfer and file, then returns `{"status":"download_confirmed","id":"<UUID>"}`. It does not play, ACK, delete or renew the lease. |
+| `POST /ack` | JSON `{"ids":["<same UUID>"]}` after successful playback. Returns `{"status":"acknowledged","ids":["<same UUID>"]}`. Retrying that ACK is idempotent, including across server restarts. |
 
-The updated client is in [`bridges/pi/`](../bridges/pi/README.md). It uses real
-ALSA `aplay` playback and durable ACK recovery. For download confirmation, the
-server also returns `X-Pi-Transfer-ID` with the WAV. Once the Pi has saved,
-fsynced and validated the complete file, it posts `id`, `transfer_id`, `size`
-and `sha256` to `/api/pi/downloaded`. This receipt only confirms the saved file;
-it never replaces the successful-playback `/ack`. The dashboard shows the audio
-message text and confirmation time. Older clients remain compatible but their
-downloads are labeled sent, not confirmed on-device. The earlier stub discussion
-below describes the original supplied spec, not the implemented client.
+POSTs use `Content-Type: application/json`. The server continues supporting older clients that omit the saved-file receipt, but their transfers cannot be labeled confirmed on-device.
 
-**LED policy: priority 5 only.** Use the top-level boolean `led_on` from every
-successful status response. It is true while any priority-5 item is pending,
-preparing audio, ready, or awaiting acknowledgment. It includes an urgent item
-waiting behind an active lower-priority lease. Priorities 3 and 4 remain playable
-but never light the LED, regardless of their count. The LED turns off once the
-last eligible priority-5 item is acknowledged or removed.
+## One press, one item
 
-Remove the old `LED_THRESHOLD`, seen-ID blink logic, button-triggered LED clearing,
-and connection-error blink logic. On a failed poll, turn the LED off; report
-connectivity errors through logs. No automatic speech is triggered by the LED.
+Startup and background polling do not download, play or acknowledge messages. Each press gets fresh status, downloads one complete WAV, validates it, reports the saved-file receipt, invokes `aplay`, and then persists/retries its playback ACK. Presses while busy are ignored. The client never drains the queue or sends a batch ACK.
 
-Copy `bridges/pi/led.py` beside the Pi's `main.py` and integrate it in the polling loop:
+Only a successful `aplay` exit creates the ACK-pending journal. A network failure during ACK retains the journal across restarts. The next button press retries only that ACK; it does not also play another item. Rejected/expired ACKs are logged and refresh status rather than being reported as success. Audio is cleaned up after an attempt; no permanent local playlist is maintained.
 
-```python
-from led import update_led
+Waiting items are ordered P5, P4, P3, then first-member source timestamp. A leased item is not interrupted by a newer urgent one. Polling leaves a group open; claiming audio seals it permanently. A status item can appear before its WAV is ready. HTTP 409 refreshes status and waits for another press; failed downloads/playback are never acknowledged.
 
-# After a successful GET /status with validated JSON:
-update_led(led, response.json())
-# On request/JSON failure:
-update_led(led, None)
-```
+## LED and timing
 
-The server change alone cannot change an existing Pi script's GPIO behavior;
-install this helper and replace the old LED rules on the device, then restart its service.
+Only literal `led_on: true` lights the LED. The flag covers pending, preparing, ready and leased P5 items, including one waiting behind lower-priority audio. P3/P4 counts never light it. Failed polls turn it off and log the error; button presses do not independently clear it. There is no queue-count threshold or connection-error blink mode, and the LED never triggers speech.
 
-**One button press processes one item.** Eli selected this behavior after reviewing the spec. Do not drain the queue or send batch acknowledgments. The server enforces a single ID in each ACK. Waiting items are ordered priority 5, 4, 3, then oldest source timestamp. A currently reserved item is not interrupted by a newer urgent one. Priorities 1 and 2 are excluded from delivery.
+The implemented client polls three seconds after each completed poll. Limits in the code are:
 
-A status item may appear while its speech is being prepared so the Pi can indicate priority 5 promptly. If audio returns 409, preserve the item, refresh status, and try on the next press; never ACK a failed download. Priority **5**, not 1, is the urgent-LED condition (the last checklist in the supplied spec has a typo).
+| Operation | Limit |
+| --- | --- |
+| HTTP inactivity/connect timeout | 5 seconds |
+| Status or ACK operation | 8 seconds |
+| Audio download | 20 seconds |
+| Saved-file receipt | 5 seconds |
+| `aplay` process | 50 seconds |
+| WAV | 5,000,000 bytes; 45 seconds |
+| Server lease | 90 seconds |
 
-Download the complete WAV; range requests are rejected. WAVs are capped at 5 MB and 45 seconds. With the spec's five-second network timeout and one-second playback stub, the normal flow fits within the 90-second lease. Expired deliveries can be downloaded again. Persist an ACK-pending ID locally after successful playback and retry that same ACK before starting another item, so a lost HTTP response does not cause duplicate playback. For lengthy real playback or stronger identity/authentication requirements, use the existing `/api/delivery/*` lease API with heartbeat instead of this single-device adapter.
+These bounds allow a normal button operation within the lease; they do not guarantee completion under stalls or failures. An expired transfer is handled through the existing retry/status flow. The Pi adapter does not heartbeat its lease; the separate `/api/delivery/*` protocol supports heartbeats for other clients.
 
-The dashboard's **Pi delivery** panel reports recent contact, audio sending, audio sent/waiting for acknowledgment, acknowledged completion, interrupted transfers, and expired acknowledgments. An acknowledgment confirms the Pi's report; with the supplied play stub it confirms save/stub completion, **not audible speaker output**. A blocking device loop can pause polling during playback; “No recent contact” is not proof of a disconnected Pi.
+## What the dashboard proves
 
-## Firmware alignment
+- **Recent contact:** a client called a Pi route; this does not verify wiring.
+- **Audio sent / awaiting acknowledgment:** the server finished its response; this alone does not prove the file was saved on the Pi.
+- **Downloaded on Pi:** the client reported a fully saved/validated WAV and the server accepted its size/hash receipt. It does not establish that the file remains indefinitely or that sound played.
+- **Acknowledged:** with this client, `aplay` returned success and the playback ACK succeeded. That is a software report, not independent confirmation that someone heard the physical speaker.
 
-The supplied `Pi Device MVP Tech Spec.md` is design input. No actual Raspberry Pi implementation was present in the repository at review time. The `main` update `14b2bd2` contains the separate ESP32 ANCS forwarder, which already sends app/title/subtitle/message/date and is compatible with current ingress.
+Physical GPIO and speaker verification requires the wired Pi and the owner's button press. Routine installation checks should inspect service state/logs and use polling only. The download-only diagnostic consumes a real offered transfer lease and must be explicitly requested; it saves/validates and reports a receipt, but never plays or ACKs. Follow its cleanup/service instructions in the Pi README.
 
-Keep the spec's Pi 4/Zero 2W hardware choices: GPIO17 button (pull-up, debounce), GPIO27 LED with resistor, and reserve GPIO18/19/21 for future audio. Keep priority-5 tracking stable through failed downloads; keep the LED driven by the server flag rather than clearing it on button press. Bound saved audio as well as rotating request logs, and keep credentials out of logs if authentication is later added.
+## Historical supplied-spec context — November 14, 2026
 
-No synthetic requests are being sent to the deployed queue. Adapter verification uses isolated temporary databases and fake local providers. A teammate still needs to run the actual Pi against these endpoints; hardware and speaker output are unverified.
+The original `Pi Device MVP Tech Spec.md` described a one-second playback stub, a queue-count LED threshold and draining all waiting messages per press. Early integration reviews correctly recorded that no Pi implementation was then present. Those statements describe that earlier stage only.
+
+The current repository includes the implemented `aplay` client, one-message-per-press behavior, priority-5-only LED, bounded downloads, saved-file receipts and durable ACK recovery. Local mocked tests verify software behavior. They do not prove which version is installed on a particular Pi, that ESP firmware was flashed, or that GPIO/speaker hardware works. See [the deployment record](DEPLOYED.md) for dated evidence; no new hardware verification was performed during this documentation reconciliation.

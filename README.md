@@ -2,110 +2,105 @@
 
 A button-operated audio pager that lets important iPhone notifications reach you without opening your phone.
 
-The local version runs a validated FastAPI server, GPT notification classification, hosted or macOS text-to-speech, and a browser interface that plays through your Mac. Input can be sample/manual notification data or validated ESP32 packets. Physical Pi playback and live EC2 deployment still require hardware/host integration.
+The dashboard and FastAPI server are deployed at [sap.elischiffler.dev](https://sap.elischiffler.dev) on EC2. The flow is iPhone → ESP32 ANCS Bluetooth bridge → server classification and Alloy TTS → browser or Raspberry Pi playback. The Pi client in this repository uses real ALSA `aplay`; running software and validated downloads do not establish that the physical speaker or GPIO hardware has been tested.
 
+- [Deployed release, verification evidence and operations](docs/DEPLOYED.md)
+- [Pi installation and updates](bridges/pi/README.md) · [Pi API handoff](docs/PI_HANDOFF.md)
+- [ESP input and connection guide](docs/ESP.md)
+- [Conversation grouping and limits](docs/GROUPING.md)
 - [One-message delivery protocol](docs/DELIVERY.md)
-- [Mac Bluetooth capture experiment](docs/MAC_BLUETOOTH.md)
-- [ESP32 packet and connection guide](docs/ESP.md)
-- [Grouped notifications and usage](docs/GROUPING.md)
 - [EC2 deployment runbook](docs/EC2.md)
-- [Implemented local API contract](docs/LOCAL_CONTRACT.md)
-- [Architecture and delivery plan](docs/PLAN.md)
-- [Notification classification prompt](prompts/classify-notification.md)
-- [Subagent work packages and demo page](docs/WORKSTREAMS.md)
+- [Classifier prompt](prompts/classify-notification.md) · [Verification history](docs/VERIFICATION.md)
+- [Mac Bluetooth experiment](docs/MAC_BLUETOOTH.md)
 
 ## Run locally
 
-Requires Python 3.11+; developed and tested on this Mac with Python 3.14. The setup has already been installed in `.venv` for this workspace. To recreate it:
+Requires Python 3.11+; developed on this Mac with Python 3.14. To create the environment:
 
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock
 ```
 
-Put `OPENAI_API_KEY` in `.env` (already configured in this workspace). `.env` is ignored by Git; `.env.example` lists optional settings and contains no secret.
+Configure `OPENAI_API_KEY` in the ignored `.env`; `.env.example` lists settings without credentials. Then run:
 
 ```sh
 ./scripts/run_local.sh
 ```
 
-Open [the Mac pager](http://127.0.0.1:8000). Keep one server worker. The server binds only to the local machine. The separate product showcase is at [/showcase/](http://127.0.0.1:8000/showcase/).
+Open [the local dashboard](http://127.0.0.1:8000). The script binds to loopback and uses one server worker. The product showcase is separate from the deployed notification dashboard.
 
-1. Send a notification through the authenticated ESP endpoint. The dashboard only monitors the queue and controls playback; manual/sample submission is removed.
-2. Wait for classification and audio generation. Priorities 1–2 disappear, increasing only the discarded count.
-3. Press **Play next** or Space outside a form field. Waiting messages/groups are ordered by priority (5, then 4, then 3), then oldest notification source timestamp within each priority. A group uses the source timestamp of its first-arriving member. Server arrival order breaks ties. If the highest-ranked item is still preparing audio, it holds its place.
-4. Press **Stop playback** to release that item for a later attempt. Nothing plays automatically after a message ends.
+1. Notifications arrive through authenticated ESP ingestion. Manual/sample submission is disabled in the dashboard and normal server configuration; isolated tests have an explicit test-only adapter.
+2. Priority 1–2 notifications are discarded from delivery. Priorities 3–5 become eligible for speech.
+3. Press **Play next** or Space outside a form field to play one message/group. Delivery order is priority 5, 4, 3, then the first member's source timestamp within each tier. The next classified item holds its place while its audio is prepared.
+4. **Stop playback** releases the item for a later attempt. Playback never advances automatically to another message.
 
-Priority 5 displays an alert before audio is ready. Enable the alert chime when prompted; browser audio policies require a gesture. Speech always requires Play. Multiple tabs share a playback lock; supported Chrome/Safari browsers provide Web Locks. Pending playback acknowledgments are kept as opaque lease receipts in local browser storage so a lost response does not automatically replay the message.
+Priority 5 raises the dashboard alert; browser chimes require the browser's audio permission/gesture. Speech still requires a button press. Multiple browser tabs coordinate with a playback lock and retain opaque pending acknowledgment receipts for retry.
 
-## Spoken notification format
+## ESP input
 
-Newly processed messages use a server-enforced format:
+The current wire payload is JSON sent to `POST /api/esp/notifications` with the ESP bearer token:
 
-> New message on iMessage from Sam: 'Want dinner tonight?'
-
-Other app notifications begin with “New notification”. GPT determines priority; the server builds the spoken text from the supplied app, sender, and original message preview. It does not present a model paraphrase as a direct quote. Common credential patterns are redacted, whitespace is normalized, and previews exceeding the 350-character speech limit include an explicit shortening notice. Hidden or insufficient content gets an unavailable-content cue. Missing contacts are never invented. Apple’s Messages app is labeled “Messages” unless the input explicitly identifies iMessage; the app can also carry SMS.
-
-Already queued audio keeps its original wording. Send a new ESP notification to hear the new format.
-
-New hosted audio uses **Alloy**. The voice picker and per-notification overrides have been removed. Previously rendered audio stays unchanged until played; no active delivery is rewritten.
-
-## Grouped conversations
-
-Send related messages from the ESP to exercise grouping. A short collection window batches up to ten messages into one classification request. Each still gets its own importance decision; priorities 1–2 are deleted. Up to fifty retained messages can share one count-prefixed summary, for example “3 notifications on iMessage from Dinner plans: Sam asks you to confirm dinner at 7 and use the Pine Street entrance.”
-
-Grouping matches app plus conversation ID when provided, otherwise sender ID or sender label. Unknown contacts are kept separate. Expand **Conversation details** to test a group chat with different senders but the same conversation ID. Groups use a sixty-second admission window and a two-second quiet delay; priority 5 skips the quiet delay. Claimed groups are permanently frozen, so new messages never alter audio in use. See [grouping details and limitations](docs/GROUPING.md).
-
-## ESP32 input
-
-Use one general `NotificationInput` for all apps. The ESP adapter accepts `app bundle ID | title/contact | message | yyyyMMddTHHmmss` over authenticated `POST /api/esp/notifications`. For Apple Messages, the second field supplies the contact; other apps preserve it as a title. The packet timestamp becomes `received_at`, normalized to UTC using configured `ESP_TIMEZONE`; `created_at` separately records server arrival. Delivery sorts priority first, then `received_at`. Set the timezone to match the phone, not the EC2 host. See [the ESP guide](docs/ESP.md) for headers, examples, retry IDs, and limits.
-
-For the demo, serve the existing frontend from the same app container on EC2 behind Caddy. A separate Vercel deployment is unnecessary for this interface and would introduce cross-origin authentication/API setup.
-
-## Providers and limits
-
-Defaults: `CLASSIFIER_PROVIDER=openai`, `CLASSIFIER_MODEL=gpt-6-luna`, `TTS_PROVIDER=openai`, `TTS_MODEL=gpt-4o-mini-tts`, voice `alloy`. The speech model is available for this hackathon but deprecated; review its replacement before maintaining this app beyond the demo. API errors are shown as failed work with an explicit Retry action. There is no silent switch to fake classification.
-
-To use real GPT with built-in Mac speech and no hosted TTS charges:
-
-```sh
-TTS_PROVIDER=macos ./scripts/run_local.sh
+```json
+{
+  "app": "com.apple.MobileSMS",
+  "title": "Sam",
+  "subtitle": "Hackathon Team",
+  "message": "Please bring the pager",
+  "date": "20261114T130105"
+}
 ```
 
-For no API calls at all:
+`subtitle` is optional for older firmware. The pipe-delimited `app | title | message | date` form remains a legacy input option. A general validated notification model supports all apps. The phone's ANCS date becomes UTC `received_at` using `ESP_TIMEZONE` (Pacific for this deployment); server arrival is recorded separately.
+
+Use HTTPS. The owner also enabled a temporary plain-HTTP exception specifically for the token-protected ESP ingestion endpoint. See [ESP setup](docs/ESP.md) for headers, retry identity and limits. Firmware source requests up to 4,096 UTF-8 bytes, but the device must be flashed to activate that limit; an app-provided shortened preview cannot be reconstructed by the server.
+
+## Speech and grouping
+
+Alloy is the fixed hosted voice. Short complete P3/P4 previews use a redacted source quote, for example:
+
+> New message on Messages from Sam: 'Want dinner tonight?'
+
+Long or ellipsis-ended previews reuse the existing classification summary. They are paraphrased, not quoted as original speech. The model is instructed to summarize only received information, without inventing the missing ending or announcing an incomplete-preview warning. Hidden/insufficient content gets an unavailable-content cue. Credential redaction, whitespace cleanup and emoji names apply before speech. Friendly app labels cover 92 apps; history shows Messages as “Text message / SMS” while preserving raw identifiers in payloads.
+
+P5 speech uses an urgent introduction. Groups announce their count and summarize their members; mixed-priority groups cover urgent updates first, then lower-priority updates with “Also,”. Individual speakers remain available to the summarizer. Existing generated or downloaded audio is not retroactively rewritten just because wording policy changes.
+
+Matching uses app plus conversation ID, otherwise sender ID or sender label. Messages subtitles provide named-chat identity; the observed unnamed `To you & <other contact>` form combines the title's sender with that recipient. Ambiguous or truncated recipient lists stay separate. Direct messages remain separate from group chats.
+
+Up to ten matching inputs share a classification call, with a decision per notification. Up to fifty retained messages can combine while unclaimed, regardless of elapsed time. The 60-second setting limits raw classification batching, not unclaimed group lifetime; a two-second quiet delay reduces repeated synthesis, and P5 bypasses that delay. Claiming audio permanently seals membership. See [grouping details](docs/GROUPING.md) for identity limitations, priority ordering and provider-budget behavior.
+
+## Providers, retention and capacity
+
+Defaults in `contracts/settings.py`: classifier `gpt-6-luna`, TTS `gpt-4o-mini-tts`, voice `alloy`, with both providers set to `openai`. Provider errors are surfaced for retry; there is no silent fallback to fake classification.
 
 ```sh
+# Real classification with local Mac speech:
+TTS_PROVIDER=macos ./scripts/run_local.sh
+# Local demo classification and speech, without hosted provider calls:
 CLASSIFIER_PROVIDER=demo TTS_PROVIDER=macos ./scripts/run_local.sh
 ```
 
-Demo classification recognizes only the five scripted samples; custom content gets a generic priority-3 cue. The interface labels this mode. macOS speech uses the installed `say` command and still creates a WAV for the same delivery protocol.
+Demo mode recognizes scripted fixtures; other content receives a generic priority-3 cue. It does not enable manual submission on the dashboard.
 
-The default durable limit is **300 provider operations**, counting classification batches, group summaries, and speech invocations (including local/demo providers). It survives server restarts. This is not a $300 allowance, a dollar spending limit, or a display of your OpenAI balance. Change `MAX_PROVIDER_CALLS` in `.env` deliberately and restart to raise it. SDK automatic retries are disabled. Only priorities 3–5 invoke speech.
+The default durable cap is **5,000 provider operations**, including classification batches, group summaries and speech invocations, including local/demo adapters. It survives restarts and is not an account credit balance or dollar budget. `MAX_PROVIDER_CALLS` changes the cap; SDK automatic retries are disabled.
 
-Outstanding work is capped at 100 original notifications, including members of grouped, failed, and leased items. Audio is capped at 45 seconds and 5 MB per item. Runtime SQLite and WAVs are stored in ignored `data/`. Successful playback removes the content and audio; priority 1–2 content is deleted after classification. The newest 10,000 opaque completed-event IDs and 10,000 ACK receipts remain for deduplication; lifetime aggregate counters remain visible. Older retried events can be treated as new once their IDs have been pruned. This does not delete the original phone notification or provider-side records.
+Outstanding work is limited to 100 original notifications. WAVs are limited to 45 seconds and 5 MB. Priority 1–2 content is removed from delivery; successful playback removes queued content/audio. Debug history separately retains original accepted payloads for two hours, with sensitive values redacted, then keeps metadata within a 1,000-record bound. The newest 10,000 opaque completion IDs and ACK receipts support retries. These deletions do not alter the original phone notification.
 
-## One message at a time
+## Pi delivery and deployment
 
-The Mac client uses the same pull/lease/ACK protocol intended for the Pi. Each device can hold one active lease. Retrying a claim returns that lease; it never pulls a second message. Heartbeats renew the default 90-second lease. Expiry requeues abandoned work, up to five attempts before manual retry is required. An acknowledgment is accepted only for the current device/lease, and duplicate completion ACKs are idempotent. No audio batches or automatic next-message playback are used.
+The Pi initiates HTTPS requests over the internet and needs no shared Wi-Fi with EC2. Each button press handles one offered item. The server advertises at most one item and permits one active Pi lease, normally 90 seconds. The Pi's LED uses only `led_on`, reflecting P5 work. A saved-file receipt and a successful-playback ACK are distinct; see [the handoff](docs/PI_HANDOFF.md).
 
-The EC2 demo runs at https://sap.elischiffler.dev using the HTTPS Docker setup in [the EC2 runbook](docs/EC2.md). The owner chose public dashboard access and controls; the ESP-specific endpoint retains its bearer token. This is one shared queue. See [the deployed runbook](docs/DEPLOYED.md) for live verification and remaining hardware integration work.
+The EC2 dashboard and playback controls are public by the owner's explicit choice. The Pi adapter shares that demo access; ESP ingestion still requires its token. This is one shared queue. The frontend is served by the existing app behind Caddy, alongside the API.
 
-## Checks
+## Verification
 
 ```sh
 .venv/bin/python -m pytest -q
-.venv/bin/ruff check contracts server intelligence tests
-.venv/bin/ruff format --check contracts server intelligence tests
 node --check web/app.js
-.venv/bin/python -m scripts.check_load
 ```
 
-Automated tests use mocked OpenAI responses and isolated temporary databases; macOS synthesis is exercised when `say` is available. A live smoke run separately verified all five sample priority decisions, deletion of 1–2, hosted WAV generation, browser playback, and stop/retry. See [verification notes](docs/VERIFICATION.md) for the tested scope and remaining limits.
+Use Ruff on changed Python files. Automated provider tests use mocks and temporary databases. The latest recorded release on November 14, 2026 has **387 passing tests** and read-only deployment verification; see [release evidence](docs/DEPLOYED.md). Earlier live sample smoke tests are historical and documented in [verification notes](docs/VERIFICATION.md). Do not send live synthetic notifications or consume real queued audio for routine verification.
 
-Confirmed behavior: priorities 1–2 are removed from the delivery queue after classification; no audio or Pi delivery. Debugging history retains original payloads for two hours, then only metadata, bounded to 1,000 requests. Priorities 3–5 enter the playback queue. Priority 5 alerts immediately. Speech always waits for a button press. Deletion applies to SAP's copy, not the original phone notification. The pager cannot reply, answer calls, or dismiss notifications on the phone.
-
-Target: Mac development server first, then EC2; iPhone → XIAO ESP32-C3 Bluetooth bridge → server → Raspberry Pi Zero 2 W audio pager.
+The pager cannot reply, answer calls, or dismiss phone notifications. Hardware wiring, the running ESP firmware and physically audible Pi output require device-side verification; code availability and server health alone do not establish them.
 
 Submission deadline: Sunday, November 15, 2026, noon Pacific.
-
-Pi integration uses the three MVP routes described in [the Pi handoff](docs/PI_HANDOFF.md). Friendly speech labels cover 92 apps; see [app-name sources](docs/APP_NAMES.md). The provider-operation cap is 5,000 and does not reset usage on restart.
