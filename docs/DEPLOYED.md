@@ -4,9 +4,9 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/a0da0f39ed5c5101`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:a0da0f39ed5c5101`, Linux AMD64.
-- Archive SHA256: `a0da0f39ed5c51010e7d482904857f23d7d97a0e2cbdb1e4082ff0327e354346`.
+- Release: `/srv/sap/releases/5afa0b4f793edf6e`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:5afa0b4f793edf6e`, Linux AMD64.
+- Archive SHA256: `5afa0b4f793edf6e11a79697d559de48b383dd2642d4f6960152db1c9d7023d1`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
@@ -14,10 +14,20 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
 
+## Natural follow-up transition
+
+Mixed-priority debriefs now join the lower-priority complete sentence with
+“Also,” instead of “They also said:”. For example: “Also, Eli asked what your
+favorite food is.” Speaker names remain available for group conversations.
+The prompt discourages redundant reporting clauses. Existing audio is unchanged.
+387 mocked local tests passed, including the reported question and multiple
+speakers. Prior release: `a0da0f39ed5c5101`. Evidence:
+`artifacts/natural-transition-release-verification.json`.
+
 ## Mixed-priority summaries
 
 Newly generated mixed P5/P3/P4 group summaries include urgent updates first,
-then “They also said:” and the lower-priority updates. Both sections have
+then “Also,” and the lower-priority updates. Both sections have
 reserved space within the existing 350-character speech limit. Validation
 requires nonempty sections and complete per-tier message-index coverage; it
 rejects missing coverage or oversized sections. This checks structure, not

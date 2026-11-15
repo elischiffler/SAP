@@ -63,7 +63,7 @@ Completed-event IDs and delivery receipts each retain the newest 10,000 entries.
 ### Mixed-priority spoken summaries
 
 Groups containing both P5 and P3/P4 messages require two summaries: urgent facts
-first, followed by “They also said:” and the lower-priority updates. Each tier
+first, followed by “Also,” and the lower-priority updates. Each tier
 gets an equal character budget within the existing 350-character total speech
 limit, including the source introduction. The model sees the full chronological
 conversation so later corrections or resolutions still apply across tiers.

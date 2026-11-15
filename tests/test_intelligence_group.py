@@ -262,7 +262,7 @@ async def test_mixed_summary_preserves_both_tiers_in_order(monkeypatch):
     digest = await build_group_summarizer(settings()).summarize(mixed_group())
     assert digest == (
         "Urgent messages from Eli on Messages. 4 notifications: "
-        "Call Eli now and bring the first aid kit. They also said: "
+        "Call Eli now and bring the first aid kit. Also, "
         "Dinner is at eight and Jordan is coming too."
     )
 
@@ -322,5 +322,32 @@ async def test_demo_mixed_summary_includes_both_sections():
     digest = await build_group_summarizer(settings(classifier_provider="demo")).summarize(
         mixed_group()
     )
-    assert "They also said:" in digest
+    assert "Also," in digest
     assert len(digest) <= 350
+
+
+async def test_mixed_question_does_not_double_attribute_contact(monkeypatch):
+    value = mixed_group()
+    for member in value.members:
+        member.sender = "Eli"
+    result = mixed_result(other_summary="Eli asked what your favorite food is.")
+
+    def handle(request):
+        data = json.loads(request.content)
+        assert "complete sentence" in data["instructions"]
+        assert "redundant reporting clause" in data["instructions"]
+        return response(json.dumps(result))
+
+    mock_openai(monkeypatch, handle)
+    digest = await build_group_summarizer(settings()).summarize(value)
+    assert digest.endswith("Also, Eli asked what your favorite food is.")
+    assert "They also said" not in digest
+
+
+async def test_neutral_transition_preserves_distinct_group_speakers(monkeypatch):
+    value = mixed_group()
+    value.conversation_name = "Friends"
+    result = mixed_result(other_summary="Maya asked about dinner; Sam will arrive at eight.")
+    mock_openai(monkeypatch, lambda request: response(json.dumps(result)))
+    digest = await build_group_summarizer(settings()).summarize(value)
+    assert "Also, Maya asked about dinner; Sam will arrive at eight." in digest
