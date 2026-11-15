@@ -4,6 +4,12 @@ Latest recorded deployment verification: November 15, 2026. Dashboard and server
 
 ## Latest recorded release
 
+Current release: `/srv/sap/releases/786e4d913d50248b`, deployed November 15, 2026 from commit `2ea9cc6`. Image `sap-pager:786e4d913d50248b`. Archive SHA256 `786e4d913d50248b03879fe54c1448b5a0bb7b44192a2472a7587ae875188c7a`.
+
+Includes the first-customer Market Research slide and unit economics, transparent pebble pager render, final Questions slide, Product Pitch dashboard link, and scroll-loaded request history. Fixed the release asset allowlist and Docker exclusion so the showcase ships with the application. All archive files match the committed revision. Public health passed; dashboard HTML/JS and presentation HTML/CSS/PNG match local hashes. Chrome checks at 1440px and 390px verified product/comparison/research/questions navigation, transparency, no horizontal overflow, and no JavaScript errors. No notification submission, playback, or acknowledgment was performed during these checks. Only SAP's app was recreated; other service containers remained running. Temporary deployment backup removed after validation.
+
+### Previous recorded release
+
 - Release: `/srv/sap/releases/6d9ef02e5e657951`; active symlink `/srv/sap/current`.
 - Image: `sap-pager:6d9ef02e5e657951`, Linux AMD64.
 - Archive SHA256: `6d9ef02e5e65795175266f9b45a5ed2948f6161a29644c5953466700ec698d37`.
