@@ -4,9 +4,9 @@ Latest recorded deployment verification: November 14, 2026. Dashboard and server
 
 ## Latest recorded release
 
-- Release: `/srv/sap/releases/893a8c77fa6a5f37`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:893a8c77fa6a5f37`, Linux AMD64.
-- Archive SHA256: `893a8c77fa6a5f37a421cbf70e94d6e05adbbceb514c2f9fc3c14693cc1fd45d`.
+- Release: `/srv/sap/releases/3799107dbad7a4ec`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:3799107dbad7a4ec`, Linux AMD64.
+- Archive SHA256: `3799107dbad7a4ecda8c97213ff4a107cce972929035cd22499c6c29ec6c11d5`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
@@ -14,9 +14,31 @@ Latest recorded deployment verification: November 14, 2026. Dashboard and server
 - Provider-operation cap: **5,000**, with existing usage preserved on restart. This is not a dollar budget; older usage readings below belong to their dated releases.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
 
-## Verification snapshot — November 14, 2026
+## Call priorities and Pi dashboard
 
-The latest local artifact, `artifacts/content-errors-release-verification.json`,
+Release `3799107dbad7a4ec` packages commit `9eddb4b` from GitHub main. Incoming
+calls are discarded at P2 without speech. Missed calls with named caller labels
+are P4; numeric, unknown/private and "Maybe:" callers are P3. Names are a proxy
+for saved contacts: the ANCS payload has no contacts-membership field. Startup
+corrects evidenced, unsealed standalone calls without rewriting claimed deliveries.
+
+The browser Playback panel and Space-key playback shortcut are removed. The Pi
+delivery, queue and history lists scroll independently within the viewport; very
+short windows retain page scrolling for accessibility. `/status` still returns
+`items` (zero or one `{id, priority}`) and `led_on`, which covers any pending P5.
+
+All 419 backend tests passed. The deployed application files match the packaged
+GitHub revision; rule checks inside the running container returned P2/P4/P3.
+Live health/state/Pi-status routes returned HTTP 200, and desktop/mobile browser
+checks passed without playback or acknowledgment requests. Evidence is in
+`artifacts/call-priority-release-verification.json`. Only SAP's app container was
+recreated. A transaction-consistent backup was taken for the update and removed
+after verification. Previous release: `1d8daba4ce8ccc08` (same call fix and Playback
+removal, before panel sizing); prior baseline: `893a8c77fa6a5f37`.
+
+## Historical verification snapshot — November 14, 2026
+
+The prior artifact, `artifacts/content-errors-release-verification.json`,
 records release `893a8c77fa6a5f37` from commit
 `b8d1f50107fc39d53435d68142a8ffba055c7d16` and **409 passing tests**. It records
 HTTP 200 for `/healthz`, `/api/state`, `/api/ingress-log` and `/api/pi/status`.
