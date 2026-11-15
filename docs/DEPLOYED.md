@@ -1,18 +1,40 @@
 # Live SAP deployment
 
-Latest recorded deployment verification: November 14, 2026. Dashboard and server: https://sap.elischiffler.dev on the existing shared EC2 host at 52.9.192.172 (us-west-1). The product showcase is separate.
+Latest recorded deployment verification: November 14, 2026. Dashboard and server: https://sap.elischiffler.dev on the existing shared EC2 host at 52.9.192.172 (us-west-1). The product showcase is available at https://sap.elischiffler.dev/demo/ (also /showcase/).
 
 ## Latest recorded release
 
-- Release: `/srv/sap/releases/33276bd9c8890736`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:33276bd9c8890736`, Linux AMD64.
-- Archive SHA256: `33276bd9c8890736312ee18480f487fe5b7e778e0ef9c7b791ea82e39d597101`.
+- Release: `/srv/sap/releases/b71d4fd12fb9878c`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:b71d4fd12fb9878c`, Linux AMD64.
+- Archive SHA256: `b71d4fd12fb9878c6deeb459ede0a28d8df8b5d599ebd74d5027834d6f4e6026`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved on restart. This is not a dollar budget; older usage readings below belong to their dated releases.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Public product presentation
+
+Release `b71d4fd12fb9878c` packages GitHub commit `6954cf1`. The dashboard's Demo
+button opens `/demo`, which redirects to `/demo/` for relative asset resolution.
+The same static presentation remains available at `/showcase/`. The release
+explicitly includes the showcase runtime, local fonts/licenses, pager render and
+survey image, excluding draft media, notes and QA screenshots.
+
+The intro mark and wordmark animate into the top-left header on entry to the
+presentation. Four footer topics omit Intro; Arrow Left/Page Up stop at Problem,
+and Home selects Problem once presenting. The header logo returns to Intro.
+Reduced-motion preferences skip the animated travel.
+
+424 backend tests passed. Chromium/WebKit checks on the live `/demo/` route
+verified desktop/mobile layouts, keyboard navigation, mock checkout and local
+assets without API writes. A separate live check verified the dashboard link,
+logo animation and logo-only Intro return. All deployed application and asset
+hashes match the packaged GitHub revision; health and Pi endpoints returned 200.
+Evidence: `artifacts/showcase-demo-release-verification.json`. Only SAP's app
+container was recreated. The temporary database backup was removed after
+verification. Previous release: `33276bd9c8890736`.
 
 ## Urgent content before the remaining-message count
 
