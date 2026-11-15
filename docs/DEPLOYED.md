@@ -1,18 +1,35 @@
 # Live SAP deployment
 
-Latest recorded deployment verification: November 14, 2026. Dashboard and server: https://sap.elischiffler.dev on the existing shared EC2 host at 52.9.192.172 (us-west-1). The product showcase is available at https://sap.elischiffler.dev/demo/ (also /showcase/).
+Latest recorded deployment verification: November 15, 2026. Dashboard and server: https://sap.elischiffler.dev on the existing shared EC2 host at 52.9.192.172 (us-west-1). The product showcase is available at https://sap.elischiffler.dev/demo/ (also /showcase/).
 
 ## Latest recorded release
 
-- Release: `/srv/sap/releases/b71d4fd12fb9878c`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:b71d4fd12fb9878c`, Linux AMD64.
-- Archive SHA256: `b71d4fd12fb9878c6deeb459ede0a28d8df8b5d599ebd74d5027834d6f4e6026`.
+- Release: `/srv/sap/releases/6d9ef02e5e657951`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:6d9ef02e5e657951`, Linux AMD64.
+- Archive SHA256: `6d9ef02e5e65795175266f9b45a5ed2948f6161a29644c5953466700ec698d37`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved on restart. This is not a dollar budget; older usage readings below belong to their dated releases.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Updated survey evidence — November 15, 2026
+
+Release `6d9ef02e5e657951` packages GitHub commit `73791ab`. The problem slide
+and image-only survey popup now use 271 votes: 6/91/91/45/38 across the five
+screen-time buckets, with 43 skips. 174/271 = 64.2%, rounded to 64%, selected
+6+ hours. The displayed bucket percentages match the screenshot (2/34/34/17/14%;
+rounding makes their total 101%). The approximate average is 7h 42m using bucket
+midpoints and assuming the open-ended 12+ bucket spans 12–15 hours; it is not an
+exact mean or a campus-wide estimate.
+
+Chromium and WebKit checks passed locally and on the deployed site for the new
+data, original image dimensions, mobile popup, keyboard focus and independent
+checkout. Live HTML and image hashes match local files, and health returned 200.
+No backend code changed. Evidence: `artifacts/survey-update-release-verification.json`.
+The temporary database backup was removed after verification. Previous release:
+`b71d4fd12fb9878c`.
 
 ## Public product presentation
 
