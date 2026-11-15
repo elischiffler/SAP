@@ -739,7 +739,8 @@ def test_group_quiet_window_cap_and_urgent_bypass(grouping_settings, monkeypatch
 
     clock.now += 60
     classify(3)
-    assert sorted(item["notification_count"] for item in store.snapshot()["items"]) == [1, 1, 2]
+    # Age no longer closes a group: fill the other group's free slot.
+    assert sorted(item["notification_count"] for item in store.snapshot()["items"]) == [2, 2]
 
 
 @pytest.mark.asyncio

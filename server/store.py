@@ -183,6 +183,7 @@ class QueueStore:
             connection.execute("UPDATE messages SET status = 'pending' WHERE status = 'processing'")
             self.reconcile_snapchat(connection)
             self.reconcile_findmy_separation(connection)
+            self.coalesce_unclaimed_groups(connection)
             self.expire_leases(connection, time.time())
             saved_audio = {
                 self.audio_path(row["id"]).name
@@ -607,6 +608,7 @@ class QueueStore:
             now = time.time()
             self.expire_leases(connection, now)
             self.coalesce_calls(connection)
+            self.coalesce_unclaimed_groups(connection)
             remaining = self.settings.max_provider_calls - self.provider_calls(connection)
             if remaining <= 0:
                 connection.execute(
@@ -721,7 +723,7 @@ class QueueStore:
             ).fetchone()
             notification = NotificationInput.model_validate_json(raw["input_json"])
             key = raw["group_key"]
-            target = self.find_open_group(connection, key, raw["created_at"])
+            target = self.find_open_group(connection, key)
             conversation_name = (notification.conversation_name or "").strip() or None
             if target:
                 group_id = target["id"]
@@ -774,7 +776,7 @@ class QueueStore:
         return time.time() + self.settings.grouping_delay_seconds
 
     def find_open_group(
-        self, connection: sqlite3.Connection, key: str | None, created_at: float
+        self, connection: sqlite3.Connection, key: str | None
     ) -> sqlite3.Row | None:
         if key is None or not self.settings.grouping_window_seconds:
             return None
@@ -785,20 +787,68 @@ class QueueStore:
         )
         return connection.execute(
             """SELECT id, priority FROM messages
-               WHERE group_key = ? AND NOT sealed AND status IN ('pending', 'ready')
+               WHERE group_key = ? AND priority >= 3 AND NOT sealed AND status IN ('pending', 'ready')
                  AND ((status = 'pending' AND reserved_operations = 0)
                       OR reserved_operations + ? >= 2)
-                 AND created_at BETWEEN ? AND ?
                  AND (SELECT COUNT(*) FROM group_members WHERE group_id = messages.id) < ?
-               ORDER BY created_at DESC, rowid DESC LIMIT 1""",
+               ORDER BY created_at, rowid LIMIT 1""",
             (
                 key,
                 unreserved,
-                created_at - self.settings.grouping_window_seconds,
-                created_at,
                 self.settings.max_group_notifications,
             ),
         ).fetchone()
+
+    def coalesce_unclaimed_groups(self, connection):
+        """Consolidate old queue fragments and arrivals during summary/TTS work.
+
+        Processing and sealed groups are immutable. Finish callbacks retry this
+        once provider work completes, before the old WAV becomes claimable.
+        Phone-event correlation and the Snapchat allowlist use separate rules.
+        """
+        if not self.settings.grouping_window_seconds:
+            return
+        while True:
+            rows = connection.execute(
+                """SELECT *, (SELECT COUNT(*) FROM group_members WHERE group_id=messages.id) AS members
+                   FROM messages WHERE priority >= 3 AND NOT sealed
+                   AND status IN ('pending', 'ready') AND group_key IS NOT NULL
+                   ORDER BY created_at, rowid"""
+            ).fetchall()
+            candidates = []
+            for row in rows:
+                key = json.loads(row["group_key"])
+                if len(key) == 3 and key[1] in {"conversation", "sender_id", "sender"}:
+                    candidates.append(row)
+            unreserved = (self.settings.max_provider_calls - self.provider_calls(connection)
+                          - self.reserved_operations(connection))
+            pair = next((
+                (first, last)
+                for index, last in enumerate(candidates)
+                for first in candidates[:index]
+                if first["group_key"] == last["group_key"]
+                and first["members"] > 0 and last["members"] > 0
+                and first["members"] + last["members"] <= self.settings.max_group_notifications
+                and unreserved + first["reserved_operations"] + last["reserved_operations"] >= 2
+            ), None)
+            if pair is None:
+                return
+            first, last = pair
+            priority = max(first["priority"], last["priority"])
+            connection.execute(
+                """UPDATE messages SET status='pending', priority=?, spoken_text=NULL,
+                   needs_summary=1, reserved_operations=2, not_before=?, error=NULL,
+                   conversation_name=COALESCE(conversation_name, ?) WHERE id=?""",
+                (priority, self.group_delay_until(first["group_key"], priority),
+                 last["conversation_name"], first["id"]),
+            )
+            connection.execute("UPDATE group_members SET group_id=? WHERE group_id=?",
+                               (first["id"], last["id"]))
+            connection.execute("DELETE FROM messages WHERE id=?", (last["id"],))
+            # The transaction blocks claims until both obsolete WAVs are invalidated.
+            for message_id in (first["id"], last["id"]):
+                with suppress(OSError):
+                    self.audio_path(message_id).unlink(missing_ok=True)
 
     def finish_summary(self, message_id: str, spoken_text: str):
         with self.transaction() as connection:
@@ -807,6 +857,7 @@ class QueueStore:
                    error = NULL WHERE id = ?""",
                 (spoken_text, message_id),
             )
+            self.coalesce_unclaimed_groups(connection)
 
     def group_for_summary(self, message_id: str) -> NotificationGroup:
         with self.transaction() as connection:
@@ -832,6 +883,7 @@ class QueueStore:
             connection.execute(
                 "UPDATE messages SET status = 'ready', error = NULL WHERE id = ?", (message_id,)
             )
+            self.coalesce_unclaimed_groups(connection)
 
     def fail_job(self, message_id: str, error: str):
         with self.transaction() as connection:

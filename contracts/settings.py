@@ -28,7 +28,10 @@ class Settings(BaseSettings):
     provider_timeout_seconds: float = Field(default=25, gt=0, le=120)
     max_provider_calls: int = Field(default=5000, ge=0, le=10000)
     grouping_delay_seconds: float = Field(default=2, ge=0, le=10)
-    grouping_window_seconds: float = Field(default=60, ge=0, le=3600)
+    grouping_window_seconds: float = Field(
+        default=60, ge=0, le=3600,
+        description="Raw classification batch window; 0 disables grouping. Does not limit unclaimed membership.",
+    )
     max_group_notifications: int = Field(default=50, ge=2, le=50)
     classification_batch_wait_seconds: float = Field(default=0.5, ge=0, le=2)
     environment: Literal["local", "production"] = "local"

@@ -4,15 +4,39 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/8bb0d4d797ac63b4`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:8bb0d4d797ac63b4`, Linux AMD64.
-- Archive SHA256: `8bb0d4d797ac63b45060773e13079a92e8f51e063b5d02c2d364e842bc57099e`.
+- Release: `/srv/sap/releases/77cf2931bc3cd6e1`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:77cf2931bc3cd6e1`, Linux AMD64.
+- Archive SHA256: `77cf2931bc3cd6e1f9cd420e97b9502b8785019ed462faf547cd03172f68bd15`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Combine unplayed conversations until delivery
+
+Unclaimed notifications with the same conversation key now combine regardless of
+elapsed time, up to 50 original notifications per group. Startup consolidates
+existing unsealed queue fragments; ordinary summary/TTS finish callbacks also
+consolidate fragments created while provider work was in progress. Groups keep
+the earliest canonical queue position and the maximum retained priority, and
+regenerate their summary/audio before becoming playable. Different conversations,
+unknown identities, Phone-event rules and Snapchat rules remain separate.
+
+The Pi's `/status` polling does not seal a group. Beginning `/audio/<id>` claims
+and permanently seals it; the browser's existing claim path seals too. Later
+arrivals form a new group, including after interrupted delivery or lease expiry.
+The 50-member cap, provider-budget protections and explicit failed-job handling
+remain in place. The 60-second configuration now limits raw classification
+batching only, with zero still disabling grouping; it no longer expires group
+membership. See [grouping behavior](GROUPING.md).
+
+352 tests passed, including hours-apart grouping, startup consolidation, a
+51-message split, arrival during TTS, and Pi poll/claim/expiry boundaries.
+Previous release: `8bb0d4d797ac63b4`. Production verification uses read-only
+requests and metadata checks; no notifications are injected, downloaded, played
+or acknowledged. Evidence: `artifacts/unplayed-groups-release-verification.json`.
 
 ## Find My separation preference
 
