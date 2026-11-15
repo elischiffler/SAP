@@ -212,3 +212,101 @@ def test_quote_threshold_includes_source_introduction():
     )
     longer = notification.model_copy(update={"body": body + "b"})
     assert ". Summary:" in format_notification_for_speech(longer, classification()).spoken_text
+
+
+@pytest.mark.parametrize("ending", ["…", "...", '…"', "...\u201d  "])
+def test_clipped_short_preview_is_summarized_not_read_as_a_cut_off_quote(ending):
+    body = (
+        "Hey everyone! My team is building BYOP, a customizable news podcast app, "
+        "for Cal Poly hackathon this weekend. We’d love your feedback on this quick 2–3 minut"
+        + ending
+    )
+    notification = NotificationInput(app="com.hammerandchisel.discord", sender="Sam", body=body)
+    summary = "Sam asks for feedback on BYOP, a customizable news podcast app for the hackathon."
+    result = classification().model_copy(update={"spoken_text": summary})
+    spoken = format_notification_for_speech(notification, result).spoken_text
+    assert (
+        spoken
+        == f"New message on Discord from Sam. Partial summary: {summary} Preview may be incomplete."
+    )
+    assert "minut" not in spoken and len(spoken) <= 350
+    assert notification.body == body
+
+
+def test_internal_ellipsis_and_clipped_sender_do_not_replace_complete_short_body():
+    notification = NotificationInput(
+        app="Discord", sender="Sam…", title="Sam…", body="Well... please meet at 5."
+    )
+    spoken = format_notification_for_speech(notification, classification()).spoken_text
+    assert spoken == "New message on Discord from Sam…: 'Well... please meet at 5.'"
+
+
+@pytest.mark.parametrize(
+    "summary", ["Unfinished paraphras…", "Unfinished paraphras...", "X" * 350, ""]
+)
+def test_clipped_preview_has_safe_fallback_for_unusable_summary(summary):
+    notification = NotificationInput(app="Discord", sender="Sam", body="Please meet at…")
+    result = classification().model_copy(update={"spoken_text": summary})
+    assert format_notification_for_speech(notification, result).spoken_text == (
+        "New message on Discord from Sam. Preview may be incomplete. Check your phone."
+    )
+
+
+def test_clipped_summary_budget_reserves_notice_and_large_source_labels():
+    from intelligence.formatting import speech_summary_limit
+
+    notification = NotificationInput(app="A" * 100, sender="B" * 120, body="Feedback wanted…")
+    budget = speech_summary_limit(notification)
+    assert 0 < budget < 240
+    result = classification().model_copy(update={"spoken_text": "x" * budget})
+    spoken = format_notification_for_speech(notification, result).spoken_text
+    assert "Partial summary:" in spoken
+    assert spoken.endswith(" Preview may be incomplete.")
+    assert len(spoken) <= 350
+
+
+def test_clipped_preview_reuses_one_classification_and_preserves_group_warning(tmp_path):
+    import sqlite3
+    import wave
+
+    body = "Please give feedback on our hackathon podcast app through this 2–3 minut…"
+    summary = "Sam asks for feedback on the hackathon podcast app."
+    classified, heard = [], []
+
+    class MockClassifier:
+        async def classify(self, notification):
+            classified.append(notification.body)
+            return classification().model_copy(update={"spoken_text": summary})
+
+    class MockSpeech:
+        async def synthesize(self, text, destination):
+            heard.append(text)
+            with wave.open(str(destination), "wb") as audio:
+                audio.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+                audio.writeframes(b"\x00\x00" * 80)
+            return destination
+
+    settings = Settings(
+        _env_file=None, data_dir=tmp_path, max_provider_calls=5, grouping_window_seconds=0
+    )
+    app = create_app(
+        settings, allow_test_ingestion=True, classifier=MockClassifier(), speech=MockSpeech()
+    )
+    with TestClient(app, base_url="http://localhost") as client:
+        response = client.post(
+            "/api/notifications", json={"app": "Discord", "sender": "Sam", "body": body}
+        )
+        assert response.status_code == 202
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            state = client.get("/api/state").json()
+            if state["counts"]["ready"]:
+                break
+            time.sleep(0.01)
+        expected = f"New message on Discord from Sam. Partial summary: {summary} Preview may be incomplete."
+        assert classified == [body]
+        assert heard == [expected]
+        assert state["items"][0]["spoken_text"] == expected
+        with sqlite3.connect(tmp_path / "pager.sqlite3") as connection:
+            digest = connection.execute("SELECT spoken_text FROM group_members").fetchone()[0]
+        assert digest == expected  # Later group summaries must retain the missing-context warning.

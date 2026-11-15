@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints
 from contracts import ClassificationResult, NotificationInput, Settings
 
 from .common import ProviderError, clean_spoken_text, openai_client
+from .formatting import preview_may_be_incomplete, speech_summary_limit
 
 _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "classify-notification.md"
 _GENERIC_SPEECH = "A notification arrived, but its content is unavailable. Check your phone."
@@ -36,7 +37,10 @@ Do not repeat the app/sender introduction or quote paraphrases as original text.
 Attribute claims to their sender
 when identified. Omit passwords, one-time codes, raw URLs, and financial
 identifiers. For insufficient evidence use "Notification content unavailable."
-as the summary."""
+as the summary. Respect each notification's summary_character_limit.
+If preview_may_be_incomplete is true, paraphrase only the visible facts into
+complete sentences. Do not copy the cut-off fragment, complete missing words,
+or infer an unseen ending. The server will announce the incomplete preview."""
 _Result = TypeVar("_Result", bound=BaseModel)
 
 
@@ -76,9 +80,12 @@ def _has_visible_content(notification: NotificationInput) -> bool:
 
 
 def _classification_payload(notification: NotificationInput) -> dict:
-    return notification.model_dump(
+    payload = notification.model_dump(
         mode="json", exclude={"event_id", "sender_id", "conversation_id"}
     )
+    payload["preview_may_be_incomplete"] = preview_may_be_incomplete(notification)
+    payload["summary_character_limit"] = speech_summary_limit(notification)
+    return payload
 
 
 def _unavailable_content() -> ClassificationResult:

@@ -4,15 +4,45 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/f840d2f5fc896093`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:f840d2f5fc896093`, Linux AMD64.
-- Archive SHA256: `f840d2f5fc8960932d1c927ad6ac0b30855532d1b6973c32b85f89f76e267b5a`.
+- Release: `/srv/sap/releases/781015c55ffcd61e`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:781015c55ffcd61e`, Linux AMD64.
+- Archive SHA256: `781015c55ffcd61eeaa7f10168a0ad0bdfe7889f23c1162d8f22feff48dd07bf`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Clipped notification previews
+
+The reported Discord preview was already ellipsis-ended in the accepted ESP
+request, before classification or TTS. Request history redacts secrets/URLs, so
+its byte count cannot establish the original BLE capture length. We have not
+established whether the running firmware, iOS or Discord supplied the cutoff.
+
+A trailing Unicode ellipsis or three dots now selects a **partial summary**
+even when the preview would fit a short source quote. It reuses the existing
+classification response and adds `Preview may be incomplete.` The same hint
+and an attribution-aware character budget are supplied to single and batch
+classification. Prompts forbid completing missing words or inventing the unseen
+ending. Invalid, unfinished or oversized summaries use a check-your-phone cue.
+Group-member digests preserve the warning for later group summarization.
+Complete short messages still use redacted source quotes. Existing audio is
+not regenerated, and no previously played notification is replayed.
+
+The hint is deliberately uncertain: writers can use ellipses intentionally.
+The ESP source requests 4096 bytes, but the running hardware must be flashed to
+use it. Even then, an app-provided shortened preview may remain shortened.
+[Apple's ANCS specification](https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Specification/Specification.html)
+defines attribute byte limits and response reassembly; the server cannot fetch
+unseen Discord content through this notification payload.
+
+327 local tests passed, including the Discord-shaped regression, both ellipsis
+forms, classification-call count, batch hints, bounded speech, hidden content,
+and warning preservation for groups. Production checks are read-only; no live
+notifications are submitted, claimed, downloaded or acknowledged. Previous
+release: `f840d2f5fc896093`.
 
 ## Phone events and Snapchat typing
 

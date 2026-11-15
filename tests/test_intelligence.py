@@ -464,3 +464,38 @@ async def test_macos_speech_produces_real_wav(tmp_path):
     validate_wav(destination, max_bytes=1_000_000, max_seconds=5)
     with wave.open(str(destination), "rb") as audio:
         assert (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()) == (1, 2, 24000)
+
+
+@pytest.mark.parametrize("batch", [False, True])
+async def test_clipped_preview_hints_use_existing_classification_call(monkeypatch, batch):
+    from intelligence.formatting import format_notification_for_speech, speech_summary_limit
+
+    body = "Sam asks for feedback on a hackathon news podcast app. Please take this 2–3 minut…"
+    notification = NotificationInput(app="Discord", sender="Sam", body=body)
+    summary = "Sam asks for feedback on a hackathon news podcast app."
+    calls = []
+
+    def handle(request):
+        data = json.loads(request.content)
+        calls.append(data)
+        payload = json.loads(data["input"][0]["content"])
+        content = payload["notifications"][0]["notification"] if batch else payload["notification"]
+        assert content["body"] == body
+        assert content["preview_may_be_incomplete"] is True
+        assert content["summary_character_limit"] == speech_summary_limit(notification)
+        assert "complete missing words" in data["instructions"]
+        if batch:
+            return batch_output([batch_decision(0, summary=summary)])
+        return hosted_response(output_text(spoken_text=summary))
+
+    mock_openai(monkeypatch, handle)
+    classifier, _ = build_providers(settings())
+    result = (
+        (await classifier.classify_batch([notification]))[0]
+        if batch
+        else await classifier.classify(notification)
+    )
+    spoken = format_notification_for_speech(notification, result).spoken_text
+    assert ". Partial summary: " + summary in spoken
+    assert "minut" not in spoken
+    assert len(calls) == 1

@@ -25,6 +25,8 @@ Keep different speakers' statements distinct if the distinction matters.
 Attribute unverified claims. Do not infer facts, urgency changes, or sender relationships.
 An unavailable preview contains no details to summarize. If all previews are
 unavailable, say so and provide no other details.
+If a member says its preview may be incomplete, preserve that uncertainty in
+the digest and never infer the missing content or finish a cut-off fragment.
 For long conversations, prioritize the most consequential update. If other
 actionable details do not fit, tell the listener to check their phone for details.
 Omit passwords, one-time codes, raw URLs, and financial identifiers.

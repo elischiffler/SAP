@@ -8,6 +8,8 @@ from contracts.app_names import display_app_name
 from .common import clean_spoken_text, redact_sensitive_text
 
 _SPOKEN_LIMIT = 350
+_INCOMPLETE_NOTE = " Preview may be incomplete."
+_ELLIPSIS_END = re.compile(r"(?:…|\.{3,})[\s\"'’”\])}]*$")
 _MESSAGING_APPS = frozenset(
     {
         "discord",
@@ -67,13 +69,7 @@ def _display_app(app: str) -> str:
     return display_app_name(app)
 
 
-def format_notification_for_speech(
-    notification: NotificationInput, result: ClassificationResult
-) -> ClassificationResult:
-    """Keep the classification and build the exact text to send to the speech provider."""
-    if result.priority <= 2:
-        return result
-
+def _speech_prefix(notification: NotificationInput) -> str:
     app = _source_label(_display_app(notification.app), 100) or "an unknown app"
     is_message = app.casefold() in _MESSAGING_APPS
     prefix = f"New {'message' if is_message else 'notification'} on {app}"
@@ -83,6 +79,41 @@ def format_notification_for_speech(
         prefix += f" from {sender}"
     elif is_message:
         prefix += " from an unknown sender"
+    return prefix
+
+
+def preview_may_be_incomplete(notification: NotificationInput) -> bool:
+    """A trailing ellipsis is a hint, not proof of transport truncation.
+
+    Inspect the original preview before redaction can hide a clipped URL. A
+    clipped sender/title does not make a complete message body incomplete.
+    """
+    if notification.content_hidden:
+        return False
+    preview = (
+        notification.body.strip() or notification.subtitle.strip() or notification.title.strip()
+    )
+    return bool(_ELLIPSIS_END.search(preview))
+
+
+def speech_summary_limit(notification: NotificationInput) -> int:
+    """Reserve space for attribution and an application-owned incompleteness cue."""
+    partial = preview_may_be_incomplete(notification)
+    intro = ". Partial summary: " if partial else ". Summary: "
+    suffix = _INCOMPLETE_NOTE if partial else ""
+    return min(
+        240, _SPOKEN_LIMIT - len(_speech_prefix(notification)) - len(intro) - len(suffix) - 1
+    )
+
+
+def format_notification_for_speech(
+    notification: NotificationInput, result: ClassificationResult
+) -> ClassificationResult:
+    """Keep the classification and build the exact text to send to the speech provider."""
+    if result.priority <= 2:
+        return result
+
+    prefix = _speech_prefix(notification)
 
     preview = ""
     if not notification.content_hidden and result.evidence == "sufficient":
@@ -95,13 +126,21 @@ def format_notification_for_speech(
         spoken_text = f"{prefix}. Content unavailable. Check your phone."
     else:
         quote_start = f"{prefix}: '"
-        if len(quote_start) + len(preview) + 1 > _SPOKEN_LIMIT:
+        partial = preview_may_be_incomplete(notification)
+        if partial or len(quote_start) + len(preview) + 1 > _SPOKEN_LIMIT:
             # Reuse the classification response: no second summarization request.
             # Never quote a paraphrase or truncate a summary mid-negation/deadline.
             summary = _safe_preview(result.spoken_text or "")
-            candidate = f"{prefix}. Summary: {summary}"
-            if summary and len(candidate) <= _SPOKEN_LIMIT:
+            complete_summary = bool(summary) and not _ELLIPSIS_END.search(summary)
+            intro = ". Partial summary: " if partial else ". Summary: "
+            if partial and summary and not summary.endswith((".", "!", "?")):
+                summary += "."
+            candidate = f"{prefix}{intro}{summary}" + (_INCOMPLETE_NOTE if partial else "")
+            # An ellipsis-ended model output is not a finished paraphrase either.
+            if complete_summary and len(candidate) <= _SPOKEN_LIMIT:
                 spoken_text = candidate
+            elif partial:
+                spoken_text = f"{prefix}. Preview may be incomplete. Check your phone."
             else:
                 spoken_text = f"{prefix}. Long message. Summary unavailable. Check your phone."
         else:

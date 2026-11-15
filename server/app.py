@@ -30,6 +30,7 @@ from intelligence import (
 from intelligence.formatting import (
     _safe_preview,
     format_notification_for_speech,
+    preview_may_be_incomplete,
     redact_preview_secrets,
 )
 
@@ -117,15 +118,19 @@ async def process_queue(
                     classified = [
                         ClassificationResult.model_validate(result) for result in raw_results
                     ]
-                    summaries = [
-                        _safe_preview(result.spoken_text)
-                        if result.spoken_text is not None
-                        else None
-                        for result in classified
-                    ]
                     results = [
                         format_notification_for_speech(notification, result)
                         for notification, result in zip(notifications, classified, strict=True)
+                    ]
+                    summaries = [
+                        formatted.spoken_text
+                        if preview_may_be_incomplete(notification)
+                        else (
+                            _safe_preview(raw.spoken_text) if raw.spoken_text is not None else None
+                        )
+                        for notification, raw, formatted in zip(
+                            notifications, classified, results, strict=True
+                        )
                     ]
             except ValidationError:
                 for item in batch:
