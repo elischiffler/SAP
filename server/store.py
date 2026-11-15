@@ -24,6 +24,7 @@ CLASSIFICATION_BATCH_LIMIT = 10
 SQLITE_TIMEOUT_SECONDS = 0.25
 MANAGED_AUDIO = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:\.pending)?\.wav")
 ERROR_MESSAGES = {
+    "content_unavailable": "Content unavailable or insufficient to interpret; not queued for playback.",
     "missing_api_key": "OpenAI API key is missing.",
     "classification_timeout": "Classification timed out.",
     "classification_unavailable": "Classification service was unavailable.",
@@ -183,6 +184,14 @@ class QueueStore:
             connection.execute("UPDATE messages SET status = 'pending' WHERE status = 'processing'")
             self.reconcile_snapchat(connection)
             self.reconcile_findmy_separation(connection)
+            # Remove only recognizable, unclaimed legacy unavailable cues.
+            unavailable = connection.execute(
+                """SELECT id FROM messages WHERE sealed=0 AND status != 'leased'
+                   AND spoken_text LIKE '%. Content unavailable. Check your phone.'
+                   AND (SELECT COUNT(*) FROM group_members WHERE group_id=messages.id) <= 1"""
+            ).fetchall()
+            for row in unavailable:
+                self.complete(connection, row["id"], "failed")
             self.coalesce_unclaimed_groups(connection)
             self.expire_leases(connection, time.time())
             saved_audio = {
@@ -573,7 +582,10 @@ class QueueStore:
         with closing(sqlite3.connect(self.path, timeout=SQLITE_TIMEOUT_SECONDS)) as connection:
             connection.row_factory = sqlite3.Row
             rows = connection.execute(
-                """SELECT h.*, COALESCE(m.status, grouped.status, c.status, h.queue_status) AS current_status
+                """SELECT h.*, COALESCE(m.status, grouped.status, c.status, h.queue_status) AS current_status,
+                          COALESCE(m.error, grouped.error,
+                                   CASE WHEN c.status = 'failed' OR h.queue_status = 'failed'
+                                        THEN 'content_unavailable' END) AS processing_error
                    FROM ingress_history h
                    LEFT JOIN messages m ON m.id = h.event_id
                    LEFT JOIN group_members member ON member.event_id = h.event_id
@@ -592,6 +604,7 @@ class QueueStore:
             entry["app_label"] = request_app_label(entry["app"]) if entry.get("app") else None
             entry["sequence"] = row["sequence"]
             entry["priority"] = row["priority"]
+            entry["error"] = ERROR_MESSAGES.get(row["processing_error"])
             status = row["current_status"]
             entry["queue_status"] = "pending" if status == "processing" else status
             entries.append(entry)
@@ -715,6 +728,9 @@ class QueueStore:
                 "UPDATE ingress_history SET priority = ? WHERE event_id = ?",
                 (result.priority, message_id),
             )
+            if result.evidence == "insufficient":
+                self.complete(connection, message_id, "failed")
+                return
             if result.priority <= 2:
                 self.complete(connection, message_id, "discarded")
                 return

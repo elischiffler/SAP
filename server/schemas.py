@@ -39,6 +39,7 @@ class EnqueueResponse(Contract):
 
 
 class IngressLogEntry(Contract):
+    error: str | None = None
     sequence: int | None = None
     priority: Annotated[int, Field(ge=1, le=5)] | None = None
     id: UUID

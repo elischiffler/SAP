@@ -453,3 +453,67 @@ def test_persistent_history_is_bounded_and_priority_survives_fast_completion(tmp
             ).fetchone()[0]
         )
         assert first["ordinal"] == 3
+
+
+async def test_unavailable_content_is_history_error_not_playback(tmp_path):
+    class UnavailableClassifier:
+        async def classify(self, notification):
+            assert notification.sender == "Trevor Sleet"
+            return ClassificationResult(priority=3, evidence="insufficient",
+                reason="Unclear content", spoken_text="Content unavailable.", deadline_at=None)
+
+    class NoSpeech:
+        async def synthesize(self, *args):
+            raise AssertionError("Unavailable content must not reach TTS")
+
+    async with connect(tmp_path, UnavailableClassifier(), NoSpeech(),
+                       max_provider_calls=10, grouping_window_seconds=0) as client:
+        packet = {"app": "com.tinyspeck.chatlyio", "title": "Trevor Sleet",
+                  "subtitle": "In #retirement_home", "message": "@channel SLACK 2 NOW",
+                  "date": "20261114T202751"}
+        assert (await client.post(ESP, json=packet, headers=AUTH)).status_code == 202
+        async with asyncio.timeout(3):
+            while True:
+                entry = (await client.get(LOG)).json()["entries"][0]
+                if entry["queue_status"] == "failed":
+                    break
+                await asyncio.sleep(0.01)
+        assert "Content unavailable" in entry["error"]
+        assert entry["status_code"] == 202
+        assert entry["payload"]["message"] == packet["message"]
+        assert (await client.get("/api/state")).json()["items"] == []
+        assert (await client.get("/status")).json() == {"items": [], "led_on": False}
+        # A transport retry must not recreate a failed/unavailable delivery.
+        assert (await client.post(ESP, json=packet, headers=AUTH)).status_code == 202
+        assert (await client.get("/api/state")).json()["items"] == []
+    async with connect(tmp_path) as client:
+        entries = (await client.get(LOG)).json()["entries"]
+        assert all(e["queue_status"] == "failed" and e["error"] for e in entries)
+        assert (await client.get("/api/state")).json()["items"] == []
+
+
+def test_startup_removes_only_unclaimed_legacy_unavailable_audio(tmp_path):
+    from contracts import NotificationInput
+
+    store = QueueStore(Settings(_env_file=None, data_dir=tmp_path, max_provider_calls=100))
+    store.initialize()
+    ids = []
+    for sealed in [False, True]:
+        event = NotificationInput(app="Slack", body="Legacy preview")
+        event_id = str(event.event_id)
+        store.enqueue(event)
+        store.finish_classification(event_id, ClassificationResult(
+            priority=3, reason="Legacy result", evidence="sufficient", deadline_at=None,
+            spoken_text="New message on Slack from an unknown sender. Content unavailable. Check your phone.",
+        ))
+        store.audio_path(event_id).write_bytes(b"legacy")
+        store.finish_speech(event_id)
+        with store.transaction() as db:
+            db.execute("UPDATE messages SET sealed=? WHERE id=?", (sealed, event_id))
+        ids.append(event_id)
+    store.initialize()
+    with store.transaction() as db:
+        assert [row[0] for row in db.execute("SELECT id FROM messages")] == [ids[1]]
+        assert db.execute("SELECT status FROM completed_events WHERE id=?", (ids[0],)).fetchone()[0] == "failed"
+    assert not store.audio_path(ids[0]).exists()
+    assert store.audio_path(ids[1]).exists()

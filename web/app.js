@@ -307,6 +307,7 @@ async function refreshIngress() {
           : "";
         const source = [entry.app_label || entry.app, eventId, queueStatus].filter(Boolean).join(" · ");
         if (source) row.append(createElement("p", "ingress-source", source));
+        if (entry.error) row.append(createElement("p", "row-error", entry.error));
         if (entry.status_code === 202 && entry.payload) {
           const details = createElement("details", "ingress-payload");
           details.dataset.requestId = entry.id;

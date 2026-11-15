@@ -224,7 +224,7 @@ def test_startup_corrects_old_snapchat_queue_without_touching_claimed_audio(tmp_
             store.enqueue(event)
         store.finish_classification(event_id, ClassificationResult(
             priority=3, reason="Legacy", spoken_text="Content unavailable. Check your phone.",
-            evidence="insufficient", deadline_at=None,
+            evidence="sufficient", deadline_at=None,
         ))
         store.audio_path(event_id).write_bytes(b"old audio")
         store.finish_speech(event_id)

@@ -77,7 +77,7 @@ def test_messages_sample_maps_sender_and_timestamp():
 
 
 @pytest.mark.parametrize(
-    "app", ["com.apple.mobilemail", "com.tinyspeck.slack", "net.example-app.News"]
+    "app", ["com.example.news", "com.tinyspeck.slack", "net.example-app.News"]
 )
 def test_general_app_keeps_title_without_inventing_sender(app):
     packet = f"{app} | Jordan | Agenda | 20261114T125641"
@@ -220,7 +220,7 @@ def test_named_text_group_shares_identity_across_senders_but_not_dm_or_other_cha
     assert grouping_key(first) != grouping_key(parse("Sam", "Family"))
     assert grouping_key(first) != grouping_key(parse("Sam", ""))
     assert parse("Sam", " ").conversation_id is None
-    assert parse("Sam", "Hackathon Team", "com.apple.mobilemail").conversation_id is None
+    assert parse("Sam", "Hackathon Team", "com.apple.mobilemail").conversation_id.startswith("ancs-source:")
 
 
 def test_unnamed_text_group_combines_sender_and_other_recipient():
@@ -265,3 +265,35 @@ def test_long_group_names_keep_full_identity_without_rejecting_valid_subtitle():
     )
     assert len(first.conversation_name) <= 120
     assert first.conversation_id != second.conversation_id
+
+
+@pytest.mark.parametrize("app", [
+    "com.tinyspeck.chatlyio", "com.hammerandchisel.discord", "com.toyopagroup.picaboo",
+    "com.apple.mobilemail", "com.google.gmail", "com.microsoft.office.outlook",
+    "net.whatsapp.whatsapp", "org.whispersystems.signal", "ph.telegra.telegraph",
+    "com.facebook.messenger", "com.microsoft.skype.teams", "com.burbn.instagram",
+    "com.apple.mobilephone", "com.apple.facetime",
+])
+def test_sender_detection_for_communication_apps(app):
+    value = parse_esp_json(json.dumps(_JSON_SAMPLE | {
+        "app": app, "title": "Trevor Sleet", "subtitle": "In #retirement_home",
+        "message": "@channel SLACK 2 NOW",
+    }), timezone_name=_PACIFIC)
+    assert value.sender == "Trevor Sleet"
+    assert value.body == "@channel SLACK 2 NOW"
+    assert value.conversation_id is None if app == "com.toyopagroup.picaboo" else value.conversation_id.startswith("ancs-source:")
+
+
+@pytest.mark.parametrize("title", ["Slack", "New message", "3 new messages", "#general", ""])
+def test_generic_slack_titles_are_not_senders(title):
+    value = parse_esp_json(json.dumps(_JSON_SAMPLE | {
+        "app": "com.tinyspeck.chatlyio", "title": title,
+    }), timezone_name=_PACIFIC)
+    assert value.sender is None
+
+
+def test_explicit_from_label_supported_on_unknown_platform():
+    value = parse_esp_json(json.dumps(_JSON_SAMPLE | {
+        "app": "com.example.newchat", "title": "From Trevor Sleet",
+    }), timezone_name=_PACIFIC)
+    assert value.sender == "Trevor Sleet"

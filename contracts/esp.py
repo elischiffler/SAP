@@ -10,12 +10,39 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field
 
+from .app_names import display_app_name
 from .models import Contract, NotificationInput
 
 _BUNDLE_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
 _BUNDLE_IDENTIFIER = rf"^{_BUNDLE_LABEL}(?:\.{_BUNDLE_LABEL})+$"
 _TIMESTAMP = r"^[0-9]{8}T[0-9]{6}$"
 _MESSAGES_APP = "com.apple.mobilesms"
+
+
+# Sender-bearing titles on communication apps. Other apps require an explicit
+# "From ..." label; an arbitrary notification headline is not a person's name.
+_SENDER_APPS = {
+    "messages", "slack", "discord", "snapchat", "whatsapp", "signal", "telegram",
+    "messenger", "microsoft teams", "instagram", "mail", "gmail", "outlook",
+    "phone", "facetime", "facebook", "linkedin", "x", "threads", "tiktok",
+}
+
+
+def _sender(fields: "_ESPPacket") -> str | None:
+    if fields.app.casefold() == _MESSAGES_APP:
+        return fields.title.strip() or None
+    title = " ".join(fields.title.split())
+    app = display_app_name(fields.app).casefold()
+    explicit = re.fullmatch(r"From\s+(.+)", title, flags=re.IGNORECASE)
+    candidate = explicit[1] if explicit else title if app in _SENDER_APPS else ""
+    generic = {app, fields.app.casefold(), "new message", "new notification", "notification",
+               "notifications", "message", "messages", "unknown", "unknown sender",
+               "incoming call", "missed call"}
+    if (not candidate or len(candidate) > 120 or candidate.casefold() in generic
+            or candidate.startswith(("#", "@channel", "@everyone"))
+            or re.fullmatch(r"\d+ new (?:messages|notifications)", candidate, re.IGNORECASE)):
+        return None
+    return candidate
 
 
 def _chat_label(value: str) -> str:
@@ -143,12 +170,16 @@ def _to_notification(
     return NotificationInput(
         event_id=event_id,
         app=fields.app,
-        sender=(fields.title.strip() or None) if is_messages else None,
+        sender=_sender(fields),
         title=fields.title,
         subtitle=fields.subtitle,
         body=fields.message,
         received_at=received_at,
         content_hidden=is_messages and not fields.message.strip(),
-        conversation_id=conversation_id,
+        # A sender label alone cannot identify a Slack workspace/channel or
+        # another platform's conversation. Do not merge distinct threads.
+        conversation_id=conversation_id if is_messages else (
+            f"ancs-source:{event_id}" if _sender(fields) and fields.app.casefold() != "com.toyopagroup.picaboo" else None
+        ),
         conversation_name=conversation_name,
     )
