@@ -4,15 +4,33 @@ Latest recorded deployment verification: November 14, 2026. Dashboard and server
 
 ## Latest recorded release
 
-- Release: `/srv/sap/releases/3799107dbad7a4ec`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:3799107dbad7a4ec`, Linux AMD64.
-- Archive SHA256: `3799107dbad7a4ecda8c97213ff4a107cce972929035cd22499c6c29ec6c11d5`.
+- Release: `/srv/sap/releases/33276bd9c8890736`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:33276bd9c8890736`, Linux AMD64.
+- Archive SHA256: `33276bd9c8890736312ee18480f487fe5b7e778e0ef9c7b791ea82e39d597101`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved on restart. This is not a dollar budget; older usage readings below belong to their dated releases.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Urgent content before the remaining-message count
+
+Release `33276bd9c8890736` packages GitHub commit `5c54e3e`. Mixed-priority
+speech now leads with the urgent summary, then says "Also, you have N more
+messages from [sender]:" before the P3/P4 summary. The count excludes the P5
+messages already summarized. Group-chat labels, unknown senders, singular/plural
+forms and non-messaging app notifications are handled explicitly. Both sections
+still share the 350-character speech budget; all-priority-equal summaries retain
+their existing format. Already-generated WAVs are not rewritten.
+
+422 mocked backend tests and lint passed. Application hashes in the running
+container match the packaged GitHub revision. An in-memory formatter check in
+that container verified the exact new wording without queue writes, audio
+playback or provider calls. Health, state, Pi-status, status and dashboard routes
+returned HTTP 200. Evidence: `artifacts/mixed-count-release-verification.json`.
+Only SAP's app container was recreated; the temporary database backup was
+removed after verification. Previous release: `3799107dbad7a4ec`.
 
 ## Call priorities and Pi dashboard
 
