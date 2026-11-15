@@ -4,15 +4,29 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/23424c7288bbe333`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:23424c7288bbe333`, Linux AMD64.
-- Archive SHA256: `23424c7288bbe3333e56dab0924ce2bb265cabfc887b195fabdc84e33940ac7f`.
+- Release: `/srv/sap/releases/208b0dcc32963216`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:208b0dcc32963216`, Linux AMD64.
+- Archive SHA256: `208b0dcc32963216b34396d95738ca955a80cfaf8425235e24b5c478e830a520`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Messages group-chat identity
+
+New ESP Messages notifications use a nonblank named-chat subtitle as the chat
+label. The observed unnamed form `To you & <other contact>` combines that contact
+with the sender in `title`, producing the same identity when they take turns
+speaking. Named and participant-based keys have separate namespaces. The sender
+remains attached to each group member; DMs with blank subtitles keep per-contact
+grouping. Other applications do not use this Messages-specific interpretation.
+
+Ambiguous, abbreviated or clipped recipient labels stay separate. Label-based
+identity cannot distinguish two named chats with identical names; see GROUPING.md.
+Raw payloads, retry IDs, existing sealed deliveries, priorities, and first-member
+timestamp ordering are preserved. No firmware update is needed for these fields.
 
 ## Clipped notification previews
 

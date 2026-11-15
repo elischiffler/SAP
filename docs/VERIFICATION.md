@@ -1,5 +1,15 @@
 # Local verification — November 14, 2026
 
+## Messages chat labels — grouping fix
+
+Release `208b0dcc32963216` derives Messages conversation identity from named-chat
+subtitles or the observed unnamed `To you & <other contact>` form plus its sender.
+Tests verify cross-sender merging, DM/chat separation, unsupported-app isolation,
+long names, ambiguous/clipped label isolation, shared classification batching,
+preserved individual senders, maximum member priority and first-member timestamp.
+All 338 tests passed. Existing wire fields are retained. Production verification is read-only and no
+synthetic notifications are submitted to the live queue.
+
 ## Clipped previews — regression fix
 
 Release `23424c7288bbe333` summarizes ellipsis-ended previews using the existing

@@ -6,6 +6,23 @@ Alloy is the default hosted voice. One group produces one bounded WAV and uses t
 
 The group key is normalized application plus, in order: explicit conversation ID, explicit sender ID, or nonblank sender label. These namespaces stay separate. Explicit conversation IDs allow multiple senders in the same group chat; using separate IDs keeps a solo conversation separate from a group involving that contact. Labels alone cannot distinguish contacts with identical names, so a real bridge should supply stable identifiers when available. With no identity metadata, notifications stay separate rather than combining unknown people. ANCS does not universally provide conversation IDs or sender metadata, so hardware grouping depends on what the bridge can actually obtain.
 
+For ESP Messages notifications (`com.apple.MobileSMS`), the user-confirmed subtitle
+format supplies chat identity. A named group's nonblank subtitle becomes a
+namespaced, hashed conversation key; the title remains the sender. For the observed
+unnamed three-person format `title=Sam, subtitle=To you & Alex`, the key uses the
+sorted pair `{Sam, Alex}`. A reply with `title=Alex, subtitle=To you & Sam` therefore
+joins the same chat. Normalized labels collapse whitespace and ignore case for
+identity. Original payloads and event/retry IDs are unchanged. Direct messages
+with a blank subtitle keep their existing per-contact grouping.
+
+This is label-based identity, not a stable ID supplied by Apple. Identically named
+groups can collide, and renaming a chat changes its key. The observed two-contact
+recipient format is supported; abbreviated lists such as `2 others`, ellipsis-ended
+labels, and unfamiliar `To ...` lists get event-specific keys so they cannot merge
+unrelated chats. Other apps do not inherit these Messages-specific assumptions.
+Chat names longer than the display limit keep their full identity in the hash.
+This applies to new arrivals; existing sealed/audio deliveries are not regrouped.
+
 After the first classification reservation, the worker waits up to 0.5 seconds and collects up to ten matching pending inputs. One GPT call returns a priority and short factual digest for every visible member. The complete received body, up to 4,096 characters, is considered; do not trim it to the audio preview before classification. Output index validation rejects missing, duplicate, or mismatched results. Hidden previews use the generic local fallback. Batch failure leaves every member explicitly failed for retry; partial model results are not applied.
 
 Priority 1–2 contents are deleted and excluded from the group count. Retained members join an unclaimed group within sixty seconds of its first server arrival, up to fifty members. A two-second quiet delay reduces repeated audio generation. Matching raw notifications still being classified defer ordinary group summarization within the admission window. Priority 5 bypasses that delay and materializes first; this can intentionally require extra speech/summary work if more messages arrive afterward.

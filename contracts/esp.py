@@ -1,6 +1,8 @@
 """Normalize text and JSON ESP packets into the pager contract."""
 
 import json
+import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Annotated
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -14,6 +16,42 @@ _BUNDLE_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
 _BUNDLE_IDENTIFIER = rf"^{_BUNDLE_LABEL}(?:\.{_BUNDLE_LABEL})+$"
 _TIMESTAMP = r"^[0-9]{8}T[0-9]{6}$"
 _MESSAGES_APP = "com.apple.mobilesms"
+
+
+def _chat_label(value: str) -> str:
+    return unicodedata.normalize("NFC", " ".join(value.split()))
+
+
+def _messages_chat(fields: "_ESPPacket", event_id: UUID) -> tuple[str | None, str | None]:
+    """Interpret the observed Messages labels without guessing opaque ANCS IDs."""
+    label = _chat_label(fields.subtitle)
+    if fields.app.casefold() != _MESSAGES_APP or not label:
+        return None, None
+    sender = _chat_label(fields.title)
+    identity = None
+    display = label
+    # Observed unnamed three-person chat: the sender is absent from the subtitle.
+    # Treat the remainder as ONE contact; do not split ambiguous contact labels.
+    recipient = re.fullmatch(r"To you & (.+)", label, flags=re.IGNORECASE)
+    clipped = re.search(r"(?:…|\.{3})$", label) or re.search(r"(?:…|\.{3})$", sender)
+    if recipient and sender and not clipped:
+        other = recipient[1]
+        ambiguous = re.search(
+            r",|&|\band\b|\b\d+\s+(?:others?|people|participants)\b", other, re.IGNORECASE
+        )
+        participants = sorted({sender.casefold(), other.casefold()})
+        if not ambiguous and len(participants) == 2:
+            identity = ["messages-participants-v1", participants]
+            display = "Group with " + ", ".join(sorted((sender, other), key=str.casefold))
+    elif not label.casefold().startswith("to ") and not clipped:
+        identity = ["messages-chat-name-v1", label.casefold()]
+    if identity is None:
+        # An incomplete recipient list must not merge unrelated chats or DMs.
+        chat_id = f"ancs-unresolved:{event_id}"
+    else:
+        chat_id = "ancs-chat:" + str(uuid5(NAMESPACE_URL, json.dumps(identity, ensure_ascii=False)))
+    display = display if len(display) <= 120 else display[:119].rstrip() + "…"
+    return chat_id, display
 
 
 class _ESPPacket(Contract):
@@ -101,6 +139,7 @@ def _to_notification(
         )
         event_id = uuid5(NAMESPACE_URL, f"sap:esp:{identity}")
     is_messages = fields.app.casefold() == _MESSAGES_APP
+    conversation_id, conversation_name = _messages_chat(fields, event_id)
     return NotificationInput(
         event_id=event_id,
         app=fields.app,
@@ -110,4 +149,6 @@ def _to_notification(
         body=fields.message,
         received_at=received_at,
         content_hidden=is_messages and not fields.message.strip(),
+        conversation_id=conversation_id,
+        conversation_name=conversation_name,
     )

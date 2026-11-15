@@ -200,3 +200,68 @@ def test_id_stable_for_same_normalized_fields_and_accepts_explicit_id():
     assert first.event_id.version == 5
     assert explicit.event_id == separate_device_event != first.event_id
     assert first.event_id != later.event_id
+
+
+def test_named_text_group_shares_identity_across_senders_but_not_dm_or_other_chat():
+    from server.store import grouping_key
+
+    def parse(sender, subtitle, app="com.apple.MobileSMS"):
+        return parse_esp_json(
+            json.dumps(_JSON_SAMPLE | {"title": sender, "subtitle": subtitle, "app": app}),
+            timezone_name=_PACIFIC,
+        )
+
+    first = parse("Sam", "Hackathon Team")
+    second = parse("Alex", "  Hackathon   Team ")
+    assert grouping_key(first) == grouping_key(second)
+    assert first.sender == "Sam" and second.sender == "Alex"
+    assert first.conversation_name == "Hackathon Team"
+    assert second.subtitle == "  Hackathon   Team "
+    assert grouping_key(first) != grouping_key(parse("Sam", "Family"))
+    assert grouping_key(first) != grouping_key(parse("Sam", ""))
+    assert parse("Sam", " ").conversation_id is None
+    assert parse("Sam", "Hackathon Team", "com.apple.mobilemail").conversation_id is None
+
+
+def test_unnamed_text_group_combines_sender_and_other_recipient():
+    from server.store import grouping_key
+
+    def parse(sender, subtitle, message="Hello"):
+        return parse_esp_json(
+            json.dumps(_JSON_SAMPLE | {"title": sender, "subtitle": subtitle, "message": message}),
+            timezone_name=_PACIFIC,
+        )
+
+    first = parse("Sam", "To you & Alex")
+    second = parse("Alex", "To you & Sam", "See you soon")
+    assert grouping_key(first) == grouping_key(second)
+    assert first.conversation_name == second.conversation_name == "Group with Alex, Sam"
+    assert first.sender == "Sam" and second.sender == "Alex"
+    assert grouping_key(first) != grouping_key(parse("Sam", "To you & Riley"))
+    assert grouping_key(first) != grouping_key(parse("Sam", ""))
+
+
+@pytest.mark.parametrize(
+    "subtitle", ["To you & 2 others", "To you & Alex, Riley", "To you & Alex…", "Family…"]
+)
+def test_ambiguous_or_clipped_chat_labels_do_not_merge(subtitle):
+    first = parse_esp_json(
+        json.dumps(_JSON_SAMPLE | {"subtitle": subtitle}), timezone_name=_PACIFIC
+    )
+    second = parse_esp_json(
+        json.dumps(_JSON_SAMPLE | {"subtitle": subtitle, "message": "Different message"}),
+        timezone_name=_PACIFIC,
+    )
+    assert first.conversation_id != second.conversation_id
+    assert first.conversation_id.startswith("ancs-unresolved:")
+
+
+def test_long_group_names_keep_full_identity_without_rejecting_valid_subtitle():
+    first = parse_esp_json(
+        json.dumps(_JSON_SAMPLE | {"subtitle": "a" * 255 + "b"}), timezone_name=_PACIFIC
+    )
+    second = parse_esp_json(
+        json.dumps(_JSON_SAMPLE | {"subtitle": "a" * 255 + "c"}), timezone_name=_PACIFIC
+    )
+    assert len(first.conversation_name) <= 120
+    assert first.conversation_id != second.conversation_id
