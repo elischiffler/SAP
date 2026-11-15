@@ -56,12 +56,21 @@ def device_rule(notification: NotificationInput) -> DeviceRule | None:
     kind = {"incoming call": "incoming", "missed call": "missed"}.get(body.casefold())
     if kind is None:
         return None
+    if kind == "incoming":
+        # Ringing is transient; only a subsequent missed-call event is actionable.
+        return DeviceRule(2, kind)
     caller = event_text(notification.sender or notification.title)
     if caller.casefold() in {"", "phone", "incoming call", "missed call", "unknown",
-                            "unknown caller", "no caller id"}:
+                            "unknown caller", "no caller id", "private number",
+                            "private caller", "blocked", "restricted", "wireless caller"}:
         caller = ""
+    # ANCS supplies a display label, not a contacts-membership flag. A named label
+    # is our contact proxy; raw phone numbers and Siri's "Maybe:" guesses stay P3.
+    named = (any(character.isalpha() for character in caller)
+             and not re.fullmatch(r"[+\d\s().-]+(?:\s*(?:ext\.?|x)\s*\d+)?", caller, re.I)
+             and not caller.casefold().startswith("maybe:"))
     label = _source_label(caller, 120) if caller else "an unknown caller"
     return DeviceRule(
-        3, kind, f"{'Missed' if kind == 'missed' else 'Incoming'} call from {label}.",
+        4 if named else 3, kind, f"Missed call from {label}.",
         label if caller else None, caller.casefold() if caller else None,
     )

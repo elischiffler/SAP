@@ -184,6 +184,7 @@ class QueueStore:
             connection.execute("UPDATE messages SET status = 'pending' WHERE status = 'processing'")
             self.reconcile_snapchat(connection)
             self.reconcile_findmy_separation(connection)
+            self.reconcile_phone_calls(connection)
             # Remove only recognizable, unclaimed legacy unavailable cues.
             unavailable = connection.execute(
                 """SELECT id FROM messages WHERE sealed=0 AND status != 'leased'
@@ -370,16 +371,16 @@ class QueueStore:
                 if rule.kind == "snapchat_chat":
                     key = '["snapchat-direct-v1"]'
                 connection.execute(
-                    """UPDATE messages SET priority=3, spoken_text=?, sender=?, input_json=NULL,
-                       group_key=? WHERE id=?""", (rule.spoken_text, rule.caller, key, event_id)
+                    """UPDATE messages SET priority=?, spoken_text=?, sender=?, input_json=NULL,
+                       group_key=? WHERE id=?""", (rule.priority, rule.spoken_text, rule.caller, key, event_id)
                 )
                 connection.execute(
-                    "INSERT INTO group_members VALUES (?, ?, ?, 3, ?, ?)",
-                    (event_id, event_id, rule.caller, rule.spoken_text,
+                    "INSERT INTO group_members VALUES (?, ?, ?, ?, ?, ?)",
+                    (event_id, event_id, rule.caller, rule.priority, rule.spoken_text,
                      notification.received_at.timestamp()),
                 )
                 connection.execute(
-                    "UPDATE ingress_history SET priority=3 WHERE event_id=?", (event_id,)
+                    "UPDATE ingress_history SET priority=? WHERE event_id=?", (rule.priority, event_id)
                 )
                 if rule.kind in {"incoming", "missed"}:
                     self.coalesce_calls(connection)
@@ -468,6 +469,52 @@ class QueueStore:
             if rule is not None and rule.kind == "findmy_separation":
                 connection.execute("UPDATE ingress_history SET priority=2 WHERE event_id=?", (row["id"],))
                 self.complete(connection, row["id"], "discarded")
+
+    def reconcile_phone_calls(self, connection):
+        """Update evidenced standalone calls, preserving claimed/sealed deliveries."""
+        rows = connection.execute(
+            """SELECT * FROM messages WHERE lower(app)='com.apple.mobilephone'
+               AND NOT sealed AND status IN ('pending', 'ready', 'failed')
+               AND (SELECT COUNT(*) FROM group_members WHERE group_id=messages.id) <= 1"""
+        ).fetchall()
+        for row in rows:
+            notification = None
+            try:
+                if row["input_json"]:
+                    notification = NotificationInput.model_validate_json(row["input_json"])
+                elif row["group_key"]:
+                    key = json.loads(row["group_key"])
+                    if (isinstance(key, list) and len(key) == 3
+                            and key[0] == "phone-call" and key[1] in {"incoming", "missed"}):
+                        notification = NotificationInput(
+                            app=row["app"], title=row["sender"] or key[2] or "",
+                            body=f"{key[1]} call",
+                        )
+                if notification is None:
+                    history = connection.execute(
+                        "SELECT record_json FROM ingress_history WHERE event_id=? ORDER BY sequence DESC LIMIT 1",
+                        (row["id"],),
+                    ).fetchone()
+                    payload = json.loads(history[0]).get("payload") if history else None
+                    if isinstance(payload, dict):
+                        notification = parse_esp_json(
+                            json.dumps(payload), timezone_name=self.settings.esp_timezone,
+                        )
+            except ValueError:
+                continue
+            rule = device_rule(notification) if notification else None
+            if rule is None or rule.kind not in {"incoming", "missed"}:
+                continue
+            connection.execute("UPDATE ingress_history SET priority=? WHERE event_id=?",
+                               (rule.priority, row["id"]))
+            if rule.priority <= 2:
+                self.complete(connection, row["id"], "discarded")
+            else:
+                # Speech is unchanged; retain a ready WAV while correcting ordering.
+                connection.execute("UPDATE messages SET priority=? WHERE id=?",
+                                   (rule.priority, row["id"]))
+                connection.execute("UPDATE group_members SET priority=? WHERE group_id=?",
+                                   (rule.priority, row["id"]))
 
     def coalesce_calls(self, connection):
         """Replace an unclaimed incoming call with its unambiguous missed update.
