@@ -124,7 +124,6 @@ kbd { font: inherit; border: 1px solid #8b7a69; padding: 0 .35em; border-radius:
 .ingress { min-width: 0; position: sticky; top: 24px; }
 .history-note { color: var(--muted); font-size: .8rem; margin: 10px 0; }
 .ingress-entries { max-height: calc(100vh - 230px); overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain; padding-right: 6px; }
-.history-navigation { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
 @media (max-width: 780px) { .ingress { position: static; } .ingress-entries { max-height: 65vh; } }
 
 .pi-transfers { list-style: none; padding: 0; margin: 10px 0 0; }
@@ -141,7 +140,7 @@ main { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .left-column { min-height: 0; grid-template-rows: minmax(0, 1fr) minmax(0, 1.2fr); }
 .pi-delivery, .queue, .ingress { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .ingress { position: static; }
-.section-heading, .feedback, .counts, .history-note, .history-navigation, .empty { flex-shrink: 0; }
+.section-heading, .feedback, .counts, .history-note, .empty { flex-shrink: 0; }
 .pi-transfers, .queue-list, .ingress-entries { flex: 1; min-height: 0; max-height: none; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 8px; }
 .pi-message-meta, .pi-receipt { overflow-wrap: anywhere; }
 .priority-alert, .service-status { flex-shrink: 0; }
@@ -156,7 +155,6 @@ main { height: 100%; display: flex; flex-direction: column; min-height: 0; }
   .counts div { flex-direction: row; align-items: baseline; gap: 8px; }
   .counts dd { font-size: 1rem; }
   .history-note { margin: 5px 0; }
-  .history-navigation { margin-top: 8px; }
   .service-status { margin: 10px 0; gap: 4px 12px; font-size: .72rem; }
 }
 /* Short windows / large text must remain reachable rather than be clipped. */

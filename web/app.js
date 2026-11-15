@@ -24,9 +24,8 @@ let seenAlerts = new Set();
 let alertBaselineLoaded = false;
 let pollInProgress = false;
 let ingressSignature;
-let historyCursor = null;
+let historyVisibleCount = 50;
 let historyNextCursor = null;
-const historyBack = [];
 let pollTimer;
 let queueSignature;
 const retrying = new Set();
@@ -232,13 +231,21 @@ function setConnection(state, message) {
 
 async function refreshIngress() {
   try {
-    const requestedCursor = historyCursor;
-    const path = "/api/ingress-log?limit=50" + (requestedCursor === null ? "" : "&before=" + requestedCursor);
-    const { entries, total, next_cursor } = await getJson(path);
-    if (requestedCursor !== historyCursor) return;
-    historyNextCursor = next_cursor;
-    byId("history-newer").disabled = historyBack.length === 0;
-    byId("history-older").disabled = next_cursor === null;
+    // Refresh the visible window so expired/played payloads are not retained locally.
+    const requestedCount = historyVisibleCount;
+    const entries = [];
+    let cursor = null;
+    let total = 0;
+    do {
+      const path = "/api/ingress-log?limit=50" + (cursor === null ? "" : "&before=" + cursor);
+      const page = await getJson(path);
+      entries.push(...page.entries);
+      total = page.total;
+      const previousCursor = cursor;
+      cursor = page.next_cursor;
+      if (!page.entries.length || cursor === previousCursor) { cursor = null; break; }
+    } while (cursor !== null && entries.length < requestedCount);
+    historyNextCursor = cursor;
     setText(byId("ingress-count"), String(total) + " requests");
     const encoded = new TextEncoder().encode(JSON.stringify(entries));
     const hash = await crypto.subtle.digest("SHA-256", encoded);
@@ -286,7 +293,9 @@ async function refreshIngress() {
         }
         fragment.append(row);
       }
+      const scrollTop = list.scrollTop;
       list.replaceChildren(fragment);
+      list.scrollTop = scrollTop;
       if (focused) {
         Array.from(list.querySelectorAll(".ingress-payload"))
           .find((details) => details.dataset.requestId === focused)?.querySelector("summary").focus();
@@ -404,19 +413,14 @@ async function retryMessage(messageId, button) {
   }
 }
 
-byId("history-older").addEventListener("click", () => {
-  if (historyNextCursor === null) return;
-  historyBack.push(historyCursor);
-  historyCursor = historyNextCursor;
-  ingressSignature = undefined;
-  void pollState();
-});
-byId("history-newer").addEventListener("click", () => {
-  if (!historyBack.length) return;
-  historyCursor = historyBack.pop();
-  ingressSignature = undefined;
-  void pollState();
-});
+byId("ingress-entries").addEventListener("scroll", () => {
+  const list = byId("ingress-entries");
+  if (pollInProgress || historyNextCursor === null || historyVisibleCount >= 1000) return;
+  if (list.scrollHeight - list.scrollTop - list.clientHeight < 120) {
+    historyVisibleCount = Math.min(1000, historyVisibleCount + 50);
+    void pollState();
+  }
+}, { passive: true });
 
 byId("enable-chimes").addEventListener("click", () => {
   void unlockChime().then((enabled) => { if (enabled) playChime(); });

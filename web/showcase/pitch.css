@@ -222,3 +222,37 @@ body:not(:has(#main[data-slide="intro"])):not(:has(#main[data-slide="product"]))
 .brand-traveler{position:fixed;left:0;top:0;z-index:30;pointer-events:none;transform-origin:0 0;will-change:transform}
 .brand-in-transit .site-header .wordmark>*{visibility:hidden!important}
 .brand-in-transit .intro-center>.intro-symbol,.brand-in-transit .intro-center>h1{visibility:hidden!important}
+
+/* A visual first-customer plan; evidence stays on the Problem slide. */
+.pricing-slide{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:42px;padding:25px 8% 35px}
+.research-heading h2{font-size:clamp(3rem,5.4vw,5.8rem);line-height:1.04;letter-spacing:-.055em;font-weight:500;margin-top:15px}
+.research-label{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.customer-path{display:grid;grid-template-columns:minmax(0,1fr) 65px minmax(0,1fr) 65px minmax(0,1fr);gap:12px;align-items:start}
+.customer-step{margin:0;min-width:0;text-align:center}
+.customer-art{height:230px;display:flex;align-items:center;justify-content:center}
+.research-group svg{width:210px;max-width:100%;height:auto;color:#535e4c}
+.research-device img{display:block;width:260px;height:260px;max-width:100%;object-fit:contain;filter:drop-shadow(8px 13px 10px #252b2320)}
+.research-arrow{width:100%;color:#a87936;margin-top:100px}
+.price-question{width:210px;max-width:100%;position:relative}
+.price-question svg{display:block;width:100%;height:auto}
+.price-question>span{position:absolute;inset:0 0 12%;display:flex;align-items:center;justify-content:center;gap:7px;color:#916323}
+.price-question strong{font-size:3rem;letter-spacing:-.06em;font-weight:500}
+.price-question i{font-size:2.5rem;font-style:normal;font-weight:400}
+.customer-step figcaption{margin-top:12px}
+.step-number{font-size:.6rem;color:#916323;letter-spacing:.1em}
+.customer-step h3{font-size:clamp(1.2rem,1.8vw,1.8rem);letter-spacing:-.035em;line-height:1.2;font-weight:500;margin-top:12px}
+.customer-step p{font-size:.78rem;line-height:1.5;color:var(--muted);margin-top:10px}
+.research-footnote{text-align:center;font-size:.6rem;color:var(--muted);margin-top:10px}
+@media(min-width:761px) and (max-height:800px){.pricing-slide{gap:24px;padding-top:15px;padding-bottom:20px}.customer-art{height:180px}.research-group svg,.price-question{width:170px}.research-device img{height:210px;width:210px}.research-arrow{margin-top:75px}.research-heading h2{font-size:4rem}.research-footnote{margin-top:0}}
+@media(max-width:1000px) and (min-width:761px){.pricing-slide{padding-left:6%;padding-right:6%}.customer-path{grid-template-columns:minmax(0,1fr) 35px minmax(0,1fr) 35px minmax(0,1fr);gap:8px}.customer-step p{font-size:.7rem}}
+@media(max-width:760px){.pricing-slide{justify-content:flex-start;padding:24px 8% 35px;gap:25px}.research-heading h2{font-size:3rem;max-width:9ch}.customer-path{grid-template-columns:1fr;gap:16px}.customer-step{display:grid;grid-template-columns:42% minmax(0,1fr);gap:18px;align-items:center;text-align:left}.customer-art{height:140px}.research-group svg{width:125px}.research-device img{height:155px;width:155px;max-width:none}.price-question{width:135px}.price-question strong{font-size:2rem}.price-question i{font-size:1.6rem}.customer-step figcaption{margin:0}.customer-step h3{font-size:1.25rem;margin-top:8px}.customer-step p{font-size:.72rem;margin-top:8px}.research-arrow{width:34px;height:22px;transform:rotate(90deg);margin:0 0 0 calc(21% - 17px)}.research-footnote{font-size:.55rem;margin-top:5px}}
+
+.research-economics{border-top:1px solid var(--line);padding-top:18px}
+.research-economics dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:0}
+.research-economics dl>div{text-align:center}
+.research-economics dt{font-size:.6rem;color:var(--muted);line-height:1.4}
+.research-economics dd{font-size:1.8rem;letter-spacing:-.04em;margin:7px 0 0;font-weight:500}
+.research-economics dd span{font-size:.7rem;color:var(--muted);letter-spacing:0}
+.research-economics>p{text-align:center;font-size:.53rem;color:var(--muted);line-height:1.5;margin-top:14px}
+@media(max-width:760px){.research-economics dl{grid-template-columns:1fr 1fr;gap:20px 12px}.research-economics dd{font-size:1.6rem}.research-economics>p{font-size:.52rem}}
+@media(min-width:761px) and (max-height:800px){.pricing-slide{gap:20px}.research-economics{padding-top:12px}.research-economics dd{font-size:1.5rem}.research-economics>p{margin-top:8px}.customer-art{height:160px}.research-arrow{margin-top:65px}}
