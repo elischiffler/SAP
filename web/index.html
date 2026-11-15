@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f1e8">
   <title>SAP · Pager dashboard</title>
-  <link rel="stylesheet" href="/styles.css?v=pi-dashboard-2">
-  <script src="/app.js?v=pi-dashboard-2" type="module"></script>
+  <link rel="stylesheet" href="/styles.css?v=pi-dashboard-3">
+  <script src="/app.js?v=pi-dashboard-3" type="module"></script>
 </head>
 <body>
   <main>
@@ -21,7 +21,7 @@
         <section class="pi-delivery" aria-labelledby="pi-title">
           <div class="section-heading"><h2 id="pi-title">Pi delivery</h2><span id="pi-connection" class="queue-count">Checking…</span></div>
           <p id="pi-feedback" class="feedback" role="status"></p>
-          <ul id="pi-transfers" class="pi-transfers" aria-label="Recent Pi deliveries"></ul>
+          <ul id="pi-transfers" class="pi-transfers" tabindex="0" aria-label="Recent Pi deliveries"></ul>
         </section>
         <section class="queue" aria-labelledby="queue-title">
           <div class="section-heading"><h2 id="queue-title">Playback queue</h2><span id="queue-count" class="queue-count">— ready</span></div>
@@ -30,7 +30,7 @@
           </dl>
           <p id="queue-error" class="feedback" role="status" hidden></p>
           <p id="state-error" class="feedback" role="status" hidden></p>
-          <ul class="queue-list" id="queue"></ul>
+          <ul class="queue-list" id="queue" tabindex="0" aria-label="Queued notifications"></ul>
           <p id="empty" class="empty">Checking the queue…</p>
         </section>
       </div>
@@ -38,7 +38,7 @@
         <div class="section-heading"><h2 id="history-title">Request history</h2><span class="queue-count" id="ingress-count">—</span></div>
         <p class="history-note">Latest 1,000 requests, newest first. Payloads expire after two hours.</p>
         <p id="ingress-feedback" class="feedback" role="status">Loading history…</p>
-        <ol id="ingress-entries" class="ingress-entries" aria-label="Request history"></ol>
+        <ol id="ingress-entries" class="ingress-entries" tabindex="0" aria-label="Request history"></ol>
         <div class="history-navigation">
           <button type="button" class="quiet-button" id="history-newer" disabled>Newer</button>
           <button type="button" class="quiet-button" id="history-older" disabled>Older</button>
