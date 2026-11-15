@@ -30,7 +30,7 @@ SHOWCASE_FILES = (
     "showcase.js", "pager-motion.js", "brand-motion.js", "presentation.js",
     "pitch-motion.js", "ambient-motion.js", "product-flow.js", "survey.js",
     "assets/mark.svg", "assets/openai-symbol.svg", "assets/openai-symbol-source.md",
-    "assets/pager-graphite-unbranded.png", "assets/yikyak-screen-time-poll.jpg",
+    "assets/pager-graphite-unbranded.png", "assets/pager-pebble.png", "assets/yikyak-screen-time-poll.jpg",
     "assets/fonts/manrope.ttf", "assets/fonts/inter.ttf", "assets/fonts/spacegrotesk.ttf",
     "assets/fonts/manrope-OFL.txt", "assets/fonts/inter-OFL.txt", "assets/fonts/spacegrotesk-OFL.txt",
 )
