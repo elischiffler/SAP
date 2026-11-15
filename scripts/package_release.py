@@ -25,6 +25,15 @@ RELEASE_FILES = (
     "web/styles.css",
 )
 PYTHON_PACKAGES = ("contracts", "intelligence", "server")
+SHOWCASE_FILES = (
+    "index.html", "styles.css", "pitch.css", "brand.css", "brand.js",
+    "showcase.js", "pager-motion.js", "brand-motion.js", "presentation.js",
+    "pitch-motion.js", "ambient-motion.js", "product-flow.js", "survey.js",
+    "assets/mark.svg", "assets/openai-symbol.svg", "assets/openai-symbol-source.md",
+    "assets/pager-graphite-unbranded.png", "assets/yikyak-screen-time-poll.jpg",
+    "assets/fonts/manrope.ttf", "assets/fonts/inter.ttf", "assets/fonts/spacegrotesk.ttf",
+    "assets/fonts/manrope-OFL.txt", "assets/fonts/inter-OFL.txt", "assets/fonts/spacegrotesk-OFL.txt",
+)
 
 
 def release_paths() -> list[Path]:
@@ -32,6 +41,8 @@ def release_paths() -> list[Path]:
     for directory in PYTHON_PACKAGES:
         paths.extend(path.relative_to(ROOT) for path in (ROOT / directory).glob("*.py"))
     paths.extend(path.relative_to(ROOT) for path in (ROOT / "prompts").glob("*.md"))
+    # Ship the presentation runtime, excluding drafts, QA screenshots and notes.
+    paths.extend(Path("web/showcase") / name for name in SHOWCASE_FILES)
     return sorted(paths)
 
 

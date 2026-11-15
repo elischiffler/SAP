@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import StringConstraints, TypeAdapter, ValidationError
 
@@ -559,6 +559,11 @@ def create_app(
         wake.set()
         return {"status": status}
 
+    @app.get("/demo", include_in_schema=False)
+    async def demo():
+        return RedirectResponse("/demo/", status_code=307)
+
+    app.mount("/demo", StaticFiles(directory=ROOT / "web" / "showcase", html=True, check_dir=False), name="demo")
     app.mount("/", StaticFiles(directory=ROOT / "web", html=True, check_dir=False), name="web")
     return app
 

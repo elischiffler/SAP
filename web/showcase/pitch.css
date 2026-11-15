@@ -1,0 +1,224 @@
+/* A presentation to speak over: one visual argument per slide. */
+.soft-ink{color:#747c6b}
+.site-header{border-bottom:0}
+.problem-slide .slide-copy h1{font-size:clamp(2.8rem,4.7vw,5.4rem);line-height:1.06}
+.problem-slide .lead{max-width:24ch;font-size:clamp(.9rem,1.25vw,1.2rem)}
+.product-slide .slide-copy .lead{font-size:clamp(1.7rem,2.7vw,3.1rem);line-height:1.15;letter-spacing:-.04em;color:var(--ink);margin-top:28px}
+.product-steps{display:flex;gap:18px;margin-top:40px;justify-content:space-between}
+.product-steps li{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:12px;flex:1;min-width:0}
+.product-steps svg{width:44px;height:44px;fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.product-steps li:nth-child(2) svg{stroke:#916323}
+.product-steps span{width:auto;font-size:.72rem;letter-spacing:0;color:var(--ink)}
+.product-specs{font-size:.76rem;margin-top:30px}
+.comparison-slide{grid-template-columns:1fr 2.2fr;align-items:center}
+.comparison-grid{gap:14px}
+.comparison-grid article,.comparison-grid .sap-comparison{border:0;background:transparent;padding:290px 16px 26px;overflow:visible}
+.comparison-grid article+article{border-left:1px solid var(--line);border-radius:0}
+.comparison-grid img{width:290px;height:290px;top:-5px}
+.brick-object{top:65px;width:145px;height:145px}
+.comparison-name{border:0;display:block;padding-bottom:0;text-align:center}
+.comparison-action{text-align:center;font-size:clamp(1.2rem,1.75vw,1.8rem);margin-top:16px}
+.competitor-source{display:block;width:max-content;margin:20px auto 0;font-size:.65rem}
+.pricing-slide{grid-template-columns:1fr 1.4fr;gap:4%;padding:2% 8%}
+.pricing-intro h2{font-size:clamp(5rem,11vw,10.5rem);letter-spacing:-.075em}
+.price-currency{display:none}
+.pricing-intro .lead{font-size:.95rem;margin-top:15px}
+.pricing-intro>[data-shop]{margin-top:32px}
+.price-visual{position:relative;align-self:stretch;min-height:380px;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.price-visual .pricing-pager{width:min(100%,520px);height:auto;max-height:80%;object-fit:contain;filter:drop-shadow(15px 25px 20px #252b2320)}
+.build-estimate{display:flex;align-items:baseline;justify-content:center;gap:14px;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.build-estimate strong{font-size:2.2rem;letter-spacing:-.05em;color:var(--ink);font-weight:500}
+@media(min-width:761px) and (max-height:720px){.comparison-grid article,.comparison-grid .sap-comparison{padding-top:230px}.comparison-grid img{width:230px;height:230px}.brick-object{width:120px;height:120px;top:45px}.price-visual{min-height:280px}}
+@media(max-width:760px){
+ .problem-slide .slide-copy h1{font-size:2.65rem;max-width:350px}.problem-slide .slide-copy h1 br{display:initial}.problem-slide .lead{font-size:.9rem;max-width:28ch}
+ .product-slide .slide-copy{display:block;padding-top:12px}.product-slide .slide-copy .lead{font-size:1.7rem;margin-top:15px}.product-steps{margin-top:28px;gap:20px}.product-steps svg{width:34px;height:34px}.product-steps span{font-size:.68rem}.product-specs{margin-top:22px;font-size:.68rem}
+ .comparison-slide{display:block;padding-top:20px}.comparison-heading h2{font-size:2.6rem}.comparison-grid{margin-top:25px;gap:6px}.comparison-grid article,.comparison-grid .sap-comparison{padding:185px 6px 20px}.comparison-grid img{width:185px;height:185px}.brick-object{width:96px;height:96px;top:40px}.comparison-name h3{font-size:1.4rem}.comparison-action{font-size:1.05rem}.competitor-source{font-size:.6rem}
+ .pricing-slide{display:flex;flex-direction:column;padding:20px 7% 30px;gap:20px}.pricing-intro{align-self:stretch}.pricing-intro h2{font-size:6.8rem}.pricing-intro .lead{font-size:.8rem}.pricing-intro>[data-shop]{margin-top:20px}.price-visual{min-height:0;width:100%}.price-visual .pricing-pager{width:280px;height:280px;max-height:none}.build-estimate{gap:10px;font-size:.7rem}.build-estimate strong{font-size:1.8rem}
+ .slide-nav{max-width:520px}.slide-nav button{padding:8px 9px;font-size:.56rem}
+}
+@media(max-width:370px){.slide-nav button{padding:8px 6px;font-size:.51rem}.comparison-grid img{width:160px;height:160px}.comparison-grid article,.comparison-grid .sap-comparison{padding-top:165px}}
+@media(prefers-reduced-motion:reduce){.screen-bars rect{transform:none!important}}
+
+.first-user-plan{margin-top:38px}.first-user-plan>span{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.first-user-plan p{font-size:.9rem;margin-top:9px;line-height:1.5}
+@media(max-width:760px){.first-user-plan{margin-top:27px}.first-user-plan p{font-size:.8rem}}
+
+/* Survey replaces the illustrative scene with traceable, self-reported evidence. */
+.problem-slide{grid-template-columns:57% 43%;align-items:center}
+.survey-visual{padding:30px 9% 35px 12%;min-width:0}
+.survey-heading .eyebrow{margin-bottom:13px;font-size:.66rem}
+.survey-heading>p:last-child{font-size:.95rem;color:var(--muted)}
+.survey-heading strong{font-weight:600;color:var(--ink)}
+.survey-heading>p:last-child>span{font-size:.78rem;margin-left:4px}
+.survey-column-labels{display:grid;grid-template-columns:1fr 44px 50px;gap:12px;font-size:.56rem;color:var(--muted);margin:35px 0 15px}
+.survey-column-labels span:not(:first-child){text-align:right}
+.survey-bars{list-style:none;margin:0;padding:0;display:grid;gap:20px}
+.survey-bars li{display:grid;grid-template-columns:60px minmax(0,1fr) 32px 50px;gap:12px;align-items:center;font-variant-numeric:tabular-nums}
+.bucket-label{font-size:.85rem}.bucket-count{font-size:.76rem;text-align:right;color:var(--muted)}
+.survey-bars strong{font-size:1rem;text-align:right;font-weight:500}
+.survey-track{height:32px;background:#e2e3d9;border-radius:5px;overflow:hidden}
+.survey-bar{display:block;height:100%;background:#abb39f;border-radius:5px;transform-origin:left center}
+.survey-bars li:nth-child(n+3) .survey-bar{background:var(--amber)}
+.survey-average{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-top:25px;margin-top:28px;border-top:1px solid var(--line)}
+.survey-average>div>span{font-size:.64rem;color:var(--muted)}
+.survey-average strong{display:block;font-size:2.5rem;line-height:1.2;letter-spacing:-.05em;font-weight:500;margin-top:7px}
+.survey-average small{font-size:.8rem;letter-spacing:0;color:var(--muted)}
+.estimate-note{font-size:.59rem;color:var(--muted);line-height:1.6}
+.problem-slide .survey-copy{padding:25px 12% 35px 0}
+.problem-slide .survey-copy h1{font-size:clamp(2.3rem,3.5vw,4rem);line-height:1.08}
+.survey-stat{display:block;font-size:clamp(6rem,10vw,10rem);letter-spacing:-.08em;margin-bottom:14px;line-height:.95}
+.survey-stat>span{font-size:.52em;letter-spacing:-.06em}
+.survey-headline{display:block}
+.survey-context{font-size:.83rem;color:var(--muted);margin-top:20px}
+.survey-open{display:flex;align-items:center;gap:26px;background:transparent;font-size:.8rem;min-height:44px;margin-top:22px;padding:10px 0;border-bottom:1px solid #a9af9e}
+.survey-limit{font-size:.62rem;color:var(--muted);line-height:1.6;margin-top:16px}
+#survey-dialog{width:min(1130px,94vw);max-height:92dvh}
+.survey-evidence{display:grid;grid-template-columns:1.1fr 1fr}
+.survey-proof{background:#000;display:flex;align-items:center;justify-content:center}
+.survey-proof img{width:100%;height:auto}
+.survey-method{padding:65px 35px 40px}
+.survey-method h2{font-size:2.35rem;line-height:1.08;margin-bottom:25px}
+.survey-method h3{font-size:1rem;letter-spacing:-.02em;margin:25px 0 12px}
+.survey-method p,.survey-method a{font-size:.76rem;line-height:1.7;margin-top:14px}
+.survey-method .eyebrow{font-size:.6rem;margin-top:0}
+.survey-method a{display:inline-block;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:1000px) and (min-width:761px){.survey-visual{padding-left:8%;padding-right:7%}.survey-average{display:block}.estimate-note{display:block;margin-top:8px}.survey-bars li{grid-template-columns:50px minmax(0,1fr) 25px 42px;gap:8px}.survey-column-labels{grid-template-columns:1fr 32px 42px;gap:8px}}
+@media(max-width:760px){.problem-slide{display:flex;flex-direction:column;align-items:stretch;padding:15px 7% 35px}.problem-slide .survey-copy{order:-1;padding:0 0 30px}.problem-slide .survey-copy h1{display:flex;align-items:center;gap:20px;font-size:1.8rem}.survey-stat{font-size:5.5rem;margin:0}.survey-context{font-size:.75rem;margin-top:12px}.survey-open{margin-top:10px}.survey-limit{margin-top:10px;font-size:.6rem}.survey-limit br{display:none}.survey-visual{padding:0}.survey-heading .eyebrow{font-size:.6rem}.survey-heading>p:last-child{font-size:.84rem}.survey-column-labels{margin-top:22px}.survey-bars{gap:14px}.survey-bars li{grid-template-columns:48px minmax(0,1fr) 27px 40px;gap:8px}.bucket-label{font-size:.75rem}.survey-bars strong{font-size:.85rem}.survey-column-labels{grid-template-columns:1fr 27px 40px;gap:8px}.survey-track{height:26px}.survey-average{gap:12px;margin-top:22px;padding-top:19px}.survey-average strong{font-size:2rem}.survey-average>div>span{font-size:.56rem}.estimate-note{font-size:.52rem}.survey-evidence{display:block}.survey-proof{padding-top:50px}.survey-method{padding:30px 25px}.survey-method h2{font-size:2rem}}
+@media(max-width:370px){.problem-slide .survey-copy h1{font-size:1.45rem;gap:14px}.survey-stat{font-size:4.6rem}.survey-average{display:block}.estimate-note{display:block;margin-top:9px}.estimate-note br{display:none}}
+
+/* Keep the original illustration; survey evidence replaces only the right copy. */
+.problem-slide{grid-template-columns:55% 45%;align-items:center}
+.problem-slide .screen-time-scene{height:100%;padding:12px 2% 20px}
+.problem-slide .survey-copy{padding:10px 11% 18px 0;min-width:0}
+.problem-slide .survey-copy h1{display:flex;align-items:center;gap:23px;font-size:clamp(1.6rem,2.4vw,2.5rem)}
+.survey-stat{font-size:clamp(5rem,7.3vw,7.5rem);margin:0;flex-shrink:0}
+.survey-context{margin-top:8px;font-size:.72rem}
+.survey-copy .survey-visual{padding:0;margin-top:24px}
+.survey-heading .eyebrow{font-size:.57rem;margin-bottom:7px}
+.survey-heading>p:last-child{font-size:.78rem}
+.survey-heading>p:last-child>span{font-size:.67rem}
+.survey-column-labels{margin:18px 0 10px;font-size:.52rem}
+.survey-bars{gap:11px}
+.survey-bars li{grid-template-columns:52px minmax(0,1fr) 28px 40px;gap:10px}
+.survey-column-labels{grid-template-columns:1fr 28px 40px;gap:10px}
+.survey-track{height:23px}
+.bucket-label{font-size:.73rem}.bucket-count{font-size:.67rem}.survey-bars strong{font-size:.8rem}
+.survey-average{margin-top:17px;padding-top:14px}
+.survey-average>div{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+.survey-average>div>span{font-size:.65rem}
+.survey-average strong{font-size:1.9rem;margin:0}
+.survey-open{margin-top:12px;font-size:.75rem}
+.survey-limit{font-size:.55rem;margin-top:8px}
+.survey-limit br{display:none}
+@media(max-width:1000px) and (min-width:761px){.problem-slide{grid-template-columns:48% 52%}.problem-slide .survey-copy{padding-right:9%}.problem-slide .survey-copy h1{gap:14px;font-size:1.65rem}.survey-stat{font-size:5rem}.survey-average>div{gap:10px}}
+@media(max-width:760px){.problem-slide{display:block;padding:0 7% 30px}.problem-slide .screen-time-scene{height:300px;padding:0;margin:0 -5%}.screen-time-art{height:300px;max-height:100%}.problem-slide .survey-copy{padding:15px 0 0}.problem-slide .survey-copy h1{font-size:1.8rem;gap:20px}.survey-stat{font-size:5.3rem}.survey-copy .survey-visual{margin-top:24px}.survey-average>div{gap:16px}.survey-open{margin-top:12px}}
+@media(max-width:370px){.problem-slide .screen-time-scene,.screen-time-art{height:260px}.problem-slide .survey-copy h1{font-size:1.4rem;gap:14px}.survey-stat{font-size:4.5rem}.survey-average>div{gap:10px}.survey-average strong{font-size:1.6rem}}
+
+/* One sample-size label; detailed vote counts live in the evidence dialog. */
+.survey-copy .survey-visual{margin-top:27px}
+.survey-bars li{grid-template-columns:52px minmax(0,1fr) 40px}
+.survey-column-labels{grid-template-columns:1fr 40px}
+@media(max-width:760px){.survey-bars li{grid-template-columns:48px minmax(0,1fr) 40px}.survey-column-labels{grid-template-columns:1fr 40px}}
+
+/* Give the left-hand illustration its own concise narrative. */
+.problem-visual-title{align-self:flex-start;margin:0 0 5px 12%;font-size:clamp(1.7rem,2.7vw,3rem);line-height:1.08;letter-spacing:-.05em;flex-shrink:0}
+.problem-slide .screen-time-scene{justify-content:center}
+.problem-slide .screen-time-art{min-height:0;max-height:calc(100% - 115px)}
+@media(max-width:760px){.problem-slide .screen-time-scene{height:375px}.problem-visual-title{font-size:2rem;margin:10px 0 0 6%}.problem-slide .screen-time-art{height:290px;max-height:290px}}
+@media(max-width:370px){.problem-slide .screen-time-scene{height:335px}.problem-visual-title{font-size:1.8rem}.problem-slide .screen-time-art{height:260px;max-height:260px}}
+
+.problem-visual-title{max-width:22ch;font-size:clamp(1.5rem,2.35vw,2.5rem);line-height:1.15;margin-right:8%}
+@media(max-width:760px){.problem-visual-title{font-size:1.7rem;max-width:23ch}}
+
+/* Keep the survey takeaway on one line without squeezing the percent sign. */
+.problem-slide .survey-copy h1{display:flex;align-items:baseline;gap:16px;white-space:nowrap;font-size:clamp(1.05rem,1.8vw,1.85rem)}
+.survey-stat{font-size:clamp(3.2rem,5vw,5.2rem);letter-spacing:-.065em;line-height:1}
+.survey-stat>span{display:inline-block;margin-left:.1em;letter-spacing:0;font-size:.55em}
+@media(max-width:1000px) and (min-width:761px){.problem-slide .survey-copy h1{gap:11px;font-size:1.05rem}.survey-stat{font-size:3.3rem}}
+@media(max-width:760px){.problem-slide .survey-copy h1{gap:10px;font-size:clamp(.88rem,3.9vw,1.35rem)}.survey-stat{font-size:clamp(2.6rem,11vw,4rem)}}
+
+/* Survey affordance: warm highlight, clear keyboard focus, gentle arrow motion. */
+.survey-open{padding:10px 14px;margin-left:-14px;border-bottom-color:transparent;border-radius:8px;transition:background-color 180ms ease,color 180ms ease}
+.survey-open span{display:inline-block;transition:transform 180ms ease}
+.survey-open:hover,.survey-open:focus-visible{background:#ce934726;color:#704b1c}
+.survey-open:hover span,.survey-open:focus-visible span{transform:translate(2px,-2px)}
+@media(prefers-reduced-motion:reduce){.survey-open,.survey-open span{transition:none}.survey-open:hover span,.survey-open:focus-visible span{transform:none}}
+
+/* Original poll image only; native dialog retains Escape and focus handling. */
+#survey-dialog{width:min(820px,94vw,88dvh);max-height:92dvh;padding:0;background:#000;overflow:auto}
+#survey-dialog .survey-proof{display:block;padding:0;background:#000}
+#survey-dialog .survey-proof img{display:block;width:100%;height:auto}
+#survey-dialog .survey-close{position:absolute;top:10px;right:10px;background:#efeee7;color:#252b23;z-index:2;box-shadow:0 2px 12px #0005}
+
+/* A reversible dark sweep keeps the label and arrow grouped. */
+.survey-open{position:relative;isolation:isolate;overflow:hidden;gap:9px;background:transparent;color:var(--ink);transition:color 220ms ease}
+.survey-open::before{content:"";position:absolute;inset:0;z-index:-1;background:#171a16;transform:scaleX(0);transform-origin:left center;transition:transform 280ms cubic-bezier(.2,.7,.2,1);border-radius:inherit}
+.survey-open:hover,.survey-open:focus-visible{background:transparent;color:#fff}
+.survey-open:hover::before,.survey-open:focus-visible::before{transform:scaleX(1)}
+.survey-open:hover span,.survey-open:focus-visible span{transform:translate(1px,-1px)}
+@media(prefers-reduced-motion:reduce){.survey-open,.survey-open::before,.survey-open span{transition:none}.survey-open:hover span,.survey-open:focus-visible span{transform:none}}
+
+/* Match the survey button's dark sweep across slide navigation. */
+.slide-nav button{position:relative;isolation:isolate;overflow:hidden;transition:color 220ms ease;background:transparent}
+.slide-nav button::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:#171a16;transform:scaleX(0);transform-origin:left center;transition:transform 280ms cubic-bezier(.2,.7,.2,1)}
+.slide-nav button:hover,.slide-nav button:focus-visible,.slide-nav button[aria-current]{background:transparent;color:#fff}
+.slide-nav button:hover::before,.slide-nav button:focus-visible::before,.slide-nav button[aria-current]::before{transform:scaleX(1)}
+@media(prefers-reduced-motion:reduce){.slide-nav button,.slide-nav button::before{transition:none}}
+
+/* Shared phone-to-pager handoff: one moving layer, reversible in either direction. */
+.pager-flight>img,.pager-flight>.flight-phone{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pager-flight>.flight-phone{overflow:visible}
+.pager-in-transit [data-phone-transition]{opacity:0}
+@media(prefers-reduced-motion:reduce){.pager-in-transit [data-phone-transition]{opacity:1}}
+@media print{.pager-in-transit [data-phone-transition]{opacity:1}}
+
+/* Adjacent slides move like a horizontal strip under the fixed navigation. */
+.slide-departure{position:absolute!important;left:0;pointer-events:none!important;overflow:hidden!important;z-index:1;will-change:transform}
+.slide{will-change:transform}
+@media(prefers-reduced-motion:reduce){.slide-departure{display:none}.slide{will-change:auto}}
+
+/* Local explanatory diagram: no backend state or automatic audio. */
+.product-flow{margin:42px 0 0;width:100%;max-width:500px}
+.product-flow>svg{display:block;width:100%;height:auto;overflow:visible}
+.flow-packet{opacity:0;pointer-events:none}
+.product-flow figcaption{display:flex;align-items:center;justify-content:space-between;margin-top:8px;color:var(--muted);font-size:.57rem}
+.flow-replay{display:flex;align-items:center;gap:7px;background:transparent;min-height:36px;padding:7px 9px;color:var(--muted);font-size:.62rem;border-radius:7px}
+.flow-replay:hover,.flow-replay:focus-visible{background:#ce934726;color:var(--ink)}
+@media(max-width:760px){.product-flow{margin-top:27px;max-width:460px}.product-flow figcaption{font-size:.56rem}}
+@media(prefers-reduced-motion:reduce){.flow-replay{display:none}}
+
+/* Centered opening screen with a quiet, seamless moving dot field. */
+.intro-slide{display:grid;place-items:center;isolation:isolate;overflow:hidden}
+.intro-center{text-align:center;display:flex;flex-direction:column;align-items:center;padding:35px 7%;position:relative;z-index:1}
+.intro-symbol{width:94px;height:94px;margin-bottom:22px}
+.intro-center h1{font-size:clamp(4rem,10vw,10rem);line-height:1!important}
+.intro-center>p{font-size:clamp(.85rem,1.5vw,1.3rem);margin-top:24px;color:var(--muted)}
+.intro-start{margin:45px 0 0;font-size:.8rem}
+.intro-pattern{position:absolute;inset:-64px;z-index:-2;pointer-events:none;background-image:radial-gradient(circle,#6a755d 1px,transparent 1.6px);background-size:32px 32px;opacity:.3;mask-image:radial-gradient(ellipse at center,transparent 18%,#000 78%);animation:intro-drift 18s linear infinite;animation-play-state:paused}
+.intro-halo{position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 50% 50%,#ce934714,transparent 65%);pointer-events:none}
+@keyframes intro-drift{to{transform:translate(32px,-32px)}}
+#main[data-slide="intro"] #intro .intro-pattern{animation-play-state:running}
+html[data-motion-paused="true"] .intro-pattern,html[data-window-active="false"] .intro-pattern{animation-play-state:paused!important}
+body:has(#main[data-slide="intro"]) .site-header .wordmark{visibility:hidden;pointer-events:none}
+#ambient-motion{margin-left:auto;width:36px;height:36px;display:grid;place-items:center;background:transparent;border:1px solid #ccd0c1;border-radius:50%;font-size:.9rem;color:var(--muted)}
+#ambient-motion:hover,#ambient-motion:focus-visible{background:var(--ink);color:#fff}
+body:not(:has(#main[data-slide="intro"])):not(:has(#main[data-slide="product"])) #ambient-motion{visibility:hidden}
+.product-flow{margin-bottom:0}
+@media(max-width:760px){.intro-symbol{width:73px;height:73px}.intro-center{padding:25px 6%}.intro-center h1{font-size:clamp(3.6rem,16vw,6rem)}.intro-center>p{font-size:.84rem}.intro-start{margin-top:35px}.slide-nav button{padding:8px 9px;font-size:.55rem}}
+@media(max-width:370px){.slide-nav button{padding:8px 6px;font-size:.5rem}}
+@media(prefers-reduced-motion:reduce){.intro-pattern{animation:none!important}#ambient-motion{display:none}}
+
+.intro-backdrop{position:absolute;inset:0;overflow:hidden;z-index:-1;pointer-events:none}.intro-backdrop .intro-pattern{z-index:0}.intro-backdrop .intro-halo{z-index:1}
+
+/* Programmatic slide focus announces context without outlining static content.
+   Interactive buttons, links, and form controls retain their focus indicators. */
+.presentation>.slide:focus,.presentation .slide h1[tabindex="-1"]:focus,.presentation .slide h2[tabindex="-1"]:focus{outline:none}
+
+/* A message arrives, then a deliberate button press precedes playback. */
+.flow-button{transform-box:fill-box;transform-origin:center}
+.flow-press,.flow-sound path{opacity:0;pointer-events:none}
+.flow-press{transform-box:fill-box;transform-origin:center}
+
+/* One continuous brand moves between the welcome screen and header. */
+.brand-traveler{position:fixed;left:0;top:0;z-index:30;pointer-events:none;transform-origin:0 0;will-change:transform}
+.brand-in-transit .site-header .wordmark>*{visibility:hidden!important}
+.brand-in-transit .intro-center>.intro-symbol,.brand-in-transit .intro-center>h1{visibility:hidden!important}

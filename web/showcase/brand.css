@@ -1,0 +1,13 @@
+@font-face{font-family:Manrope;src:url('./assets/fonts/manrope.ttf') format('truetype');font-weight:200 800;font-display:swap}
+@font-face{font-family:Inter;src:url('./assets/fonts/inter.ttf') format('truetype');font-weight:100 900;font-display:swap}
+@font-face{font-family:'Space Grotesk';src:url('./assets/fonts/spacegrotesk.ttf') format('truetype');font-weight:300 700;font-display:swap}
+:root{--brand-font:Manrope;--brand-orange:var(--amber,#ce9347)}
+:root[data-brand-font="inter"]{--brand-font:Inter}
+:root[data-brand-font="space"]{--brand-font:'Space Grotesk'}
+.brand-type{font-family:var(--brand-font),sans-serif!important;font-weight:750!important;letter-spacing:-.045em!important;line-height:1.1;white-space:nowrap}
+.brand-ai{color:var(--brand-orange)}
+.site-header .wordmark{align-items:center;gap:9px;letter-spacing:normal;font-size:1.6rem}
+.site-header .wordmark>.brand-type{width:auto;height:auto;margin:0;background:none;border-radius:0}
+.brand-symbol{width:34px;height:34px;flex-shrink:0}
+.product-slide .slide-copy #product-title{font-size:clamp(2.2rem,4.2vw,4.5rem)}
+@media(max-width:760px){.site-header .wordmark{font-size:1.3rem}.brand-symbol{width:29px;height:29px}.product-slide .slide-copy #product-title{font-size:2rem}}
