@@ -256,3 +256,7 @@ body:not(:has(#main[data-slide="intro"])):not(:has(#main[data-slide="product"]))
 .research-economics>p{text-align:center;font-size:.53rem;color:var(--muted);line-height:1.5;margin-top:14px}
 @media(max-width:760px){.research-economics dl{grid-template-columns:1fr 1fr;gap:20px 12px}.research-economics dd{font-size:1.6rem}.research-economics>p{font-size:.52rem}}
 @media(min-width:761px) and (max-height:800px){.pricing-slide{gap:20px}.research-economics{padding-top:12px}.research-economics dd{font-size:1.5rem}.research-economics>p{margin-top:8px}.customer-art{height:160px}.research-arrow{margin-top:65px}}
+
+.questions-slide{display:flex;align-items:center;justify-content:center;padding:30px;text-align:center}
+.questions-slide h2{font-size:clamp(3.2rem,9vw,9rem);line-height:1;letter-spacing:-.06em;font-weight:500}
+.presentation[data-slide="questions"] #slide-topic{visibility:hidden}
