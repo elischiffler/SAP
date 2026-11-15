@@ -261,8 +261,8 @@ async def test_mixed_summary_preserves_both_tiers_in_order(monkeypatch):
     mock_openai(monkeypatch, handle)
     digest = await build_group_summarizer(settings()).summarize(mixed_group())
     assert digest == (
-        "Urgent messages from Eli on Messages. 4 notifications: "
-        "Call Eli now and bring the first aid kit. Also, "
+        "Urgent messages from Eli on Messages. "
+        "Call Eli now and bring the first aid kit. Also, you have 2 more messages from Eli: "
         "Dinner is at eight and Jordan is coming too."
     )
 
@@ -340,7 +340,7 @@ async def test_mixed_question_does_not_double_attribute_contact(monkeypatch):
 
     mock_openai(monkeypatch, handle)
     digest = await build_group_summarizer(settings()).summarize(value)
-    assert digest.endswith("Also, Eli asked what your favorite food is.")
+    assert digest.endswith("Also, you have 2 more messages from Eli: Eli asked what your favorite food is.")
     assert "They also said" not in digest
 
 
@@ -350,4 +350,38 @@ async def test_neutral_transition_preserves_distinct_group_speakers(monkeypatch)
     result = mixed_result(other_summary="Maya asked about dinner; Sam will arrive at eight.")
     mock_openai(monkeypatch, lambda request: response(json.dumps(result)))
     digest = await build_group_summarizer(settings()).summarize(value)
-    assert "Also, Maya asked about dinner; Sam will arrive at eight." in digest
+    assert "Also, you have 2 more messages in Friends: Maya asked about dinner; Sam will arrive at eight." in digest
+
+
+@pytest.mark.parametrize("app,kind", [("com.apple.MobileSMS", "messages"), ("Calendar", "notifications")])
+def test_count_follows_urgent_content_and_excludes_urgent_members(app, kind):
+    from intelligence.group_summary import _format_mixed, _MixedSummaryResult
+
+    value = mixed_group()
+    value.app = app
+    members = sorted(value.members, key=lambda member: member.received_at)
+    for member in members:
+        member.priority = 3
+    members[0].priority = 5
+    spoken = _format_mixed(value, members, _MixedSummaryResult(
+        urgent_summary="The house is burning down.",
+        other_summary="Dinner is at eight and Jordan is coming too.",
+        urgent_indexes=[0], other_indexes=[1, 2, 3],
+    ))
+    assert spoken.startswith(f"Urgent {kind[:-1]} from Eli on {app if app == 'Calendar' else 'Messages'}. The house is burning down.")
+    assert f"Also, you have 3 more {kind} from Eli:" in spoken
+    assert "4 notifications" not in spoken
+    assert len(spoken) <= 350
+
+
+def test_single_remaining_message_without_sender_has_natural_transition():
+    from intelligence.group_summary import _format_mixed, _MixedSummaryResult
+
+    value = group(sender=None)
+    members = sorted(value.members, key=lambda member: member.received_at)
+    members[0].priority = 5
+    spoken = _format_mixed(value, members, _MixedSummaryResult(
+        urgent_summary="Call now.", other_summary="Dinner is at eight.",
+        urgent_indexes=[0], other_indexes=[1],
+    ))
+    assert spoken == "Urgent message on Messages. Call now. Also, you have 1 more message: Dinner is at eight."
