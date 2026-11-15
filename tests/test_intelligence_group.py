@@ -166,3 +166,28 @@ async def test_demo_summary_labels_itself_and_omits_missing_sender():
         digest
         == "2 notifications on Messages: Demo mode. Check your phone for the individual notifications."
     )
+
+
+async def test_incomplete_preview_hint_is_metadata_not_spoken_warning(monkeypatch):
+    from intelligence.formatting import INCOMPLETE_DIGEST_MARKER
+
+    notification_group = group()
+    notification_group.members[0].spoken_text = (
+        INCOMPLETE_DIGEST_MARKER + "Sam asks for feedback on the hackathon podcast app."
+    )
+
+    def handle(request):
+        data = json.loads(request.content)
+        payload = json.loads(data["input"][0]["content"])
+        partial = [n for n in payload["notifications"] if n["preview_may_be_incomplete"]]
+        assert len(partial) == 1
+        assert partial[0]["spoken_text"] == "Sam asks for feedback on the hackathon podcast app."
+        assert "Do not announce preview incompleteness" in data["instructions"]
+        return response(
+            json.dumps({"summary": "Sam asks for feedback on the hackathon podcast app."})
+        )
+
+    mock_openai(monkeypatch, handle)
+    digest = await build_group_summarizer(settings()).summarize(notification_group)
+    assert "incomplete" not in digest.lower()
+    assert "feedback on the hackathon podcast app" in digest

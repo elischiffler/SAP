@@ -225,10 +225,7 @@ def test_clipped_short_preview_is_summarized_not_read_as_a_cut_off_quote(ending)
     summary = "Sam asks for feedback on BYOP, a customizable news podcast app for the hackathon."
     result = classification().model_copy(update={"spoken_text": summary})
     spoken = format_notification_for_speech(notification, result).spoken_text
-    assert (
-        spoken
-        == f"New message on Discord from Sam. Partial summary: {summary} Preview may be incomplete."
-    )
+    assert spoken == f"New message on Discord from Sam. Summary: {summary}"
     assert "minut" not in spoken and len(spoken) <= 350
     assert notification.body == body
 
@@ -248,7 +245,7 @@ def test_clipped_preview_has_safe_fallback_for_unusable_summary(summary):
     notification = NotificationInput(app="Discord", sender="Sam", body="Please meet at…")
     result = classification().model_copy(update={"spoken_text": summary})
     assert format_notification_for_speech(notification, result).spoken_text == (
-        "New message on Discord from Sam. Preview may be incomplete. Check your phone."
+        "New message on Discord from Sam. Summary unavailable. Check your phone."
     )
 
 
@@ -260,8 +257,8 @@ def test_clipped_summary_budget_reserves_notice_and_large_source_labels():
     assert 0 < budget < 240
     result = classification().model_copy(update={"spoken_text": "x" * budget})
     spoken = format_notification_for_speech(notification, result).spoken_text
-    assert "Partial summary:" in spoken
-    assert spoken.endswith(" Preview may be incomplete.")
+    assert "Summary:" in spoken
+    assert "incomplete" not in spoken
     assert len(spoken) <= 350
 
 
@@ -303,10 +300,11 @@ def test_clipped_preview_reuses_one_classification_and_preserves_group_warning(t
             if state["counts"]["ready"]:
                 break
             time.sleep(0.01)
-        expected = f"New message on Discord from Sam. Partial summary: {summary} Preview may be incomplete."
+        expected = f"New message on Discord from Sam. Summary: {summary}"
         assert classified == [body]
         assert heard == [expected]
         assert state["items"][0]["spoken_text"] == expected
         with sqlite3.connect(tmp_path / "pager.sqlite3") as connection:
             digest = connection.execute("SELECT spoken_text FROM group_members").fetchone()[0]
-        assert digest == expected  # Later group summaries must retain the missing-context warning.
+        assert digest == "[Incomplete preview] " + summary
+        assert "incomplete" not in heard[0].lower()

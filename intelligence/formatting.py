@@ -8,7 +8,7 @@ from contracts.app_names import display_app_name
 from .common import clean_spoken_text, redact_sensitive_text
 
 _SPOKEN_LIMIT = 350
-_INCOMPLETE_NOTE = " Preview may be incomplete."
+INCOMPLETE_DIGEST_MARKER = "[Incomplete preview] "
 _ELLIPSIS_END = re.compile(r"(?:…|\.{3,})[\s\"'’”\])}]*$")
 _MESSAGING_APPS = frozenset(
     {
@@ -97,13 +97,23 @@ def preview_may_be_incomplete(notification: NotificationInput) -> bool:
 
 
 def speech_summary_limit(notification: NotificationInput) -> int:
-    """Reserve space for attribution and an application-owned incompleteness cue."""
-    partial = preview_may_be_incomplete(notification)
-    intro = ". Partial summary: " if partial else ". Summary: "
-    suffix = _INCOMPLETE_NOTE if partial else ""
-    return min(
-        240, _SPOKEN_LIMIT - len(_speech_prefix(notification)) - len(intro) - len(suffix) - 1
-    )
+    """Reserve space for the app and sender introduction."""
+    return min(240, _SPOKEN_LIMIT - len(_speech_prefix(notification)) - len(". Summary: ") - 1)
+
+
+def classification_summary_for_group(
+    notification: NotificationInput, result: ClassificationResult
+) -> str | None:
+    """Retain a source-quality hint for grouping, separate from spoken audio."""
+    if result.spoken_text is None:
+        return None
+    summary = _safe_preview(result.spoken_text)
+    if not preview_may_be_incomplete(notification):
+        return summary
+    marked = INCOMPLETE_DIGEST_MARKER + summary
+    if len(marked) <= _SPOKEN_LIMIT:
+        return marked
+    return INCOMPLETE_DIGEST_MARKER + "No usable summary."
 
 
 def format_notification_for_speech(
@@ -132,15 +142,15 @@ def format_notification_for_speech(
             # Never quote a paraphrase or truncate a summary mid-negation/deadline.
             summary = _safe_preview(result.spoken_text or "")
             complete_summary = bool(summary) and not _ELLIPSIS_END.search(summary)
-            intro = ". Partial summary: " if partial else ". Summary: "
+            intro = ". Summary: "
             if partial and summary and not summary.endswith((".", "!", "?")):
                 summary += "."
-            candidate = f"{prefix}{intro}{summary}" + (_INCOMPLETE_NOTE if partial else "")
+            candidate = f"{prefix}{intro}{summary}"
             # An ellipsis-ended model output is not a finished paraphrase either.
             if complete_summary and len(candidate) <= _SPOKEN_LIMIT:
                 spoken_text = candidate
             elif partial:
-                spoken_text = f"{prefix}. Preview may be incomplete. Check your phone."
+                spoken_text = f"{prefix}. Summary unavailable. Check your phone."
             else:
                 spoken_text = f"{prefix}. Long message. Summary unavailable. Check your phone."
         else:

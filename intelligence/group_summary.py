@@ -11,7 +11,7 @@ from contracts import Settings
 from contracts.models import NotificationGroup
 
 from .common import ProviderError, openai_client
-from .formatting import _display_app, _safe_preview
+from .formatting import INCOMPLETE_DIGEST_MARKER, _display_app, _safe_preview
 
 _SUMMARY_LIMIT = 200
 _INSTRUCTIONS = """Write a brief spoken digest of the supplied phone notification previews.
@@ -25,8 +25,9 @@ Keep different speakers' statements distinct if the distinction matters.
 Attribute unverified claims. Do not infer facts, urgency changes, or sender relationships.
 An unavailable preview contains no details to summarize. If all previews are
 unavailable, say so and provide no other details.
-If a member says its preview may be incomplete, preserve that uncertainty in
-the digest and never infer the missing content or finish a cut-off fragment.
+A preview_may_be_incomplete flag is internal source-quality metadata. Summarize
+only supported facts; never infer missing content or finish a cut-off fragment.
+Do not announce preview incompleteness or truncation in the spoken digest.
 For long conversations, prioritize the most consequential update. If other
 actionable details do not fit, tell the listener to check their phone for details.
 Omit passwords, one-time codes, raw URLs, and financial identifiers.
@@ -59,6 +60,15 @@ def _format_digest(group: NotificationGroup, summary: str) -> str:
     return f"{len(group.members)} notifications on {source}: {summary}"
 
 
+def _member_payload(member) -> dict:
+    payload = member.model_dump(mode="json", exclude={"event_id"})
+    incomplete = member.spoken_text.startswith(INCOMPLETE_DIGEST_MARKER)
+    payload["preview_may_be_incomplete"] = incomplete
+    if incomplete:
+        payload["spoken_text"] = member.spoken_text[len(INCOMPLETE_DIGEST_MARKER) :]
+    return payload
+
+
 class OpenAIGroupSummarizer:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -68,9 +78,7 @@ class OpenAIGroupSummarizer:
         payload = {
             "app": group.app,
             "sender": group.sender,
-            "notifications": [
-                member.model_dump(mode="json", exclude={"event_id"}) for member in members
-            ],
+            "notifications": [_member_payload(member) for member in members],
         }
         model = self._settings.classifier_model
         model_options = (

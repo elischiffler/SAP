@@ -4,9 +4,9 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/781015c55ffcd61e`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:781015c55ffcd61e`, Linux AMD64.
-- Archive SHA256: `781015c55ffcd61eeaa7f10168a0ad0bdfe7889f23c1162d8f22feff48dd07bf`.
+- Release: `/srv/sap/releases/23424c7288bbe333`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:23424c7288bbe333`, Linux AMD64.
+- Archive SHA256: `23424c7288bbe3333e56dab0924ce2bb265cabfc887b195fabdc84e33940ac7f`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
@@ -21,13 +21,15 @@ request, before classification or TTS. Request history redacts secrets/URLs, so
 its byte count cannot establish the original BLE capture length. We have not
 established whether the running firmware, iOS or Discord supplied the cutoff.
 
-A trailing Unicode ellipsis or three dots now selects a **partial summary**
+A trailing Unicode ellipsis or three dots now selects a **natural summary**
 even when the preview would fit a short source quote. It reuses the existing
-classification response and adds `Preview may be incomplete.` The same hint
-and an attribution-aware character budget are supplied to single and batch
+classification response, without speaking an incomplete-preview warning. An internal
+incompleteness hint and attribution-aware character budget are supplied to single and batch
 classification. Prompts forbid completing missing words or inventing the unseen
 ending. Invalid, unfinished or oversized summaries use a check-your-phone cue.
-Group-member digests preserve the warning for later group summarization.
+Group-member digests preserve an internal marker, converted to metadata for group
+summarization. The marker is omitted from the text sent for group summarization,
+and both single and group prompts tell the model not to announce it.
 Complete short messages still use redacted source quotes. Existing audio is
 not regenerated, and no previously played notification is replayed.
 
@@ -38,9 +40,9 @@ use it. Even then, an app-provided shortened preview may remain shortened.
 defines attribute byte limits and response reassembly; the server cannot fetch
 unseen Discord content through this notification payload.
 
-327 local tests passed, including the Discord-shaped regression, both ellipsis
+328 local tests passed, including the Discord-shaped regression, both ellipsis
 forms, classification-call count, batch hints, bounded speech, hidden content,
-and warning preservation for groups. Production checks are read-only; no live
+and internal hint preservation without spoken warnings for groups. Production checks are read-only; no live
 notifications are submitted, claimed, downloaded or acknowledged. Previous
 release: `f840d2f5fc896093`.
 

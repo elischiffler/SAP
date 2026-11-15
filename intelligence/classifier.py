@@ -40,7 +40,8 @@ identifiers. For insufficient evidence use "Notification content unavailable."
 as the summary. Respect each notification's summary_character_limit.
 If preview_may_be_incomplete is true, paraphrase only the visible facts into
 complete sentences. Do not copy the cut-off fragment, complete missing words,
-or infer an unseen ending. The server will announce the incomplete preview."""
+or infer an unseen ending. Do not announce preview incompleteness or truncation;
+simply summarize the supported meaning."""
 _Result = TypeVar("_Result", bound=BaseModel)
 
 

@@ -2,16 +2,17 @@
 
 ## Clipped previews — regression fix
 
-Release `781015c55ffcd61e` summarizes ellipsis-ended previews using the existing
+Release `23424c7288bbe333` summarizes ellipsis-ended previews using the existing
 classification response, even below the normal 350-character spoken threshold.
 The actual reported Discord request already contained a shortened preview;
 missing text cannot be recovered server-side. No raw user payload was added to
 fixtures: tests use the supplied public message text and synthetic source labels.
 
-All **327 tests passed**. Regression coverage includes Unicode/ASCII ellipses,
+All **328 tests passed**. Regression coverage includes Unicode/ASCII ellipses,
 internal ellipses remaining verbatim, long sender labels, complete-summary fallback,
-one single/batch classifier request, and the incomplete-content warning reaching
-both TTS input and stored group digests. Ruff passes on changed Python files.
+one single/batch classifier request, and incompleteness kept as internal metadata
+while TTS receives a natural summary without a warning. Group-provider tests verify
+the internal marker is separated from the spoken summary. Ruff passes on changed Python files.
 The release preserves main's Pi download receipts and device-event rules.
 
 ## Priority-5-only LED — deployed

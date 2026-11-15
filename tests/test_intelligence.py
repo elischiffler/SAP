@@ -496,6 +496,6 @@ async def test_clipped_preview_hints_use_existing_classification_call(monkeypatc
         else await classifier.classify(notification)
     )
     spoken = format_notification_for_speech(notification, result).spoken_text
-    assert ". Partial summary: " + summary in spoken
+    assert ". Summary: " + summary in spoken
     assert "minut" not in spoken
     assert len(calls) == 1
