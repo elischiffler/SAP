@@ -92,4 +92,5 @@ class GroupMember(Contract):
 class NotificationGroup(Contract):
     app: Annotated[str, Field(strict=True, min_length=1, max_length=100)]
     sender: Annotated[str, Field(strict=True, max_length=120)] | None
+    conversation_name: Annotated[str, Field(strict=True, max_length=120)] | None = None
     members: Annotated[list[GroupMember], Field(min_length=2, max_length=50)]

@@ -33,6 +33,15 @@ Solo playback keeps the strict source preview format. Group playback is a paraph
 
 > 3 notifications on iMessage from Dinner plans: Sam asks you to confirm dinner at 7 and use the Pine Street entrance.
 
+P5 groups begin with “Urgent messages in [chat] on [app]”, followed by the count
+and summary. Direct-contact groups say “Urgent messages from [sender] on [app]”;
+unknown sources say “Urgent notifications on [app]”. The maximum member priority
+determines urgency. P3/P4 group wording remains unchanged. Individual P5 messages
+say “Urgent message from [sender] on [app]”; non-messaging apps use “notification”,
+and unknown senders use “Urgent notification on [app]”. Prefixes are supplied by
+the formatter, not inferred by the speech model. The original length bounds,
+redaction, hidden-preview handling and classification priorities remain unchanged.
+
 The final model sees chronological factual per-message digests, including sender, priority, and receipt time. These preserve relevant details from the full classifier input, including details beyond the solo preview's 350-character limit. The final digest has at most 200 characters; the app supplies and validates the count and source prefix. The instructions prioritize actions, changed plans, deadlines, danger, uncertainty, and negation, and direct listeners to the phone if more actionable details will not fit.
 
 Compression and classification can make mistakes. This is a brief, not a complete transcript, and important-information recall has not been established by a large evaluation. Context is shared within each ten-message classification batch; earlier batches are not a persistent conversation memory. Corrections can therefore still be misinterpreted across batch boundaries. Generated summaries must not be advertised as emergency-reliable.

@@ -56,6 +56,15 @@ def _format_digest(group: NotificationGroup, summary: str) -> str:
         summary = summary[: _SUMMARY_LIMIT - 1].rstrip() + "…"
     app = _short_label(_display_app(group.app), 40) or "an unknown app"
     sender = _short_label(group.sender or "", 60)
+    if any(member.priority == 5 for member in group.members):
+        conversation = _short_label(group.conversation_name or "", 60)
+        if conversation:
+            prefix = f"Urgent messages in {conversation} on {app}"
+        elif sender:
+            prefix = f"Urgent messages from {sender} on {app}"
+        else:
+            prefix = f"Urgent notifications on {app}"
+        return f"{prefix}. {len(group.members)} notifications: {summary}"
     source = f"{app} from {sender}" if sender else app
     return f"{len(group.members)} notifications on {source}: {summary}"
 

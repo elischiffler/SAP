@@ -32,6 +32,40 @@ def test_source_preview_replaces_model_text_and_preserves_classification():
     assert original_result.spoken_text == "GPT invented summary."
 
 
+@pytest.mark.parametrize("priority,prefix", [
+    (3, "New message on Messages from Eli"),
+    (4, "New message on Messages from Eli"),
+    (5, "Urgent message from Eli on Messages"),
+])
+def test_urgent_speech_only_changes_priority_five(priority, prefix):
+    notification = NotificationInput(app="com.apple.MobileSMS", sender="Eli", body="Please call me now.")
+    original = classification(priority)
+    result = format_notification_for_speech(notification, original)
+    assert result.spoken_text == f"{prefix}: 'Please call me now.'"
+    assert result.model_dump(exclude={"spoken_text"}) == original.model_dump(exclude={"spoken_text"})
+
+
+@pytest.mark.parametrize("app,sender,prefix", [
+    ("Messages", None, "Urgent notification on Messages"),
+    ("Calendar", "Work", "Urgent notification from Work on Calendar"),
+    ("Calendar", None, "Urgent notification on Calendar"),
+])
+def test_urgent_speech_with_unknown_sender_or_non_message(app, sender, prefix):
+    notification = NotificationInput(app=app, sender=sender, content_hidden=True, body="private")
+    result = format_notification_for_speech(notification, classification(5))
+    assert result.spoken_text == f"{prefix}. Content unavailable. Check your phone."
+
+
+def test_urgent_long_message_uses_existing_summary_and_keeps_bounds():
+    notification = NotificationInput(app="Messages", sender="Eli", body="long message " * 100)
+    result = format_notification_for_speech(notification, classification(5))
+    assert result.spoken_text == "Urgent message from Eli on Messages. Summary: GPT invented summary."
+    notification = notification.model_copy(update={"app": "A" * 100, "sender": "B" * 120})
+    result = format_notification_for_speech(notification, classification(5))
+    assert result.spoken_text.startswith("Urgent notification from ")
+    assert len(result.spoken_text) <= 350
+
+
 @pytest.mark.parametrize(
     "app,sender,expected",
     [

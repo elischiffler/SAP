@@ -35,6 +35,40 @@ def settings(**overrides):
     return Settings(_env_file=None, openai_api_key="mock-key", **overrides)
 
 
+@pytest.mark.parametrize("priority", [3, 4, 5])
+@pytest.mark.parametrize("conversation,sender", [("Family", "Family"), (None, "Eli"), (None, None)])
+def test_group_urgent_prefix_is_based_on_maximum_member_priority(priority, conversation, sender):
+    from intelligence.group_summary import _format_digest
+
+    value = group(sender=sender)
+    value.conversation_name = conversation
+    value.members[0].priority = priority
+    value.members[1].priority = 3
+    summary = "Please call Eli now."
+    spoken = _format_digest(value, summary)
+    if priority == 5:
+        if conversation:
+            prefix = "Urgent messages in Family on Messages"
+        elif sender:
+            prefix = "Urgent messages from Eli on Messages"
+        else:
+            prefix = "Urgent notifications on Messages"
+        assert spoken == f"{prefix}. 2 notifications: {summary}"
+    else:
+        source = f"Messages from {sender}" if sender else "Messages"
+        assert spoken == f"2 notifications on {source}: {summary}"
+
+
+def test_urgent_group_with_long_labels_stays_within_speech_limit():
+    from intelligence.group_summary import _format_digest
+
+    value = group(app="A" * 100, sender="B" * 120, count=50)
+    value.members[0].priority = 5
+    assert len(_format_digest(value, "x" * 200)) <= 350
+    value.conversation_name = "C" * 120
+    assert len(_format_digest(value, "x" * 200)) <= 350
+
+
 def mock_openai(monkeypatch, handler):
     def client(config):
         return AsyncOpenAI(

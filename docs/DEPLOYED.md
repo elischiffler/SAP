@@ -4,15 +4,33 @@ Verified November 14, 2026. Dashboard and server: https://sap.elischiffler.dev o
 
 ## Current release
 
-- Release: `/srv/sap/releases/77cf2931bc3cd6e1`; active symlink `/srv/sap/current`.
-- Image: `sap-pager:77cf2931bc3cd6e1`, Linux AMD64.
-- Archive SHA256: `77cf2931bc3cd6e1f9cd420e97b9502b8785019ed462faf547cd03172f68bd15`.
+- Release: `/srv/sap/releases/4bf6aee4618c02c6`; active symlink `/srv/sap/current`.
+- Image: `sap-pager:4bf6aee4618c02c6`, Linux AMD64.
+- Archive SHA256: `4bf6aee4618c02c6e600792156e4e74312fde1322e82493b1704fffd235c42ba`.
 - Source: committed and pushed to [GitHub main](https://github.com/elischiffler/SAP/tree/main)
   before deployment. Release files are checked byte-for-byte against that commit.
 - Compose project `sap`; containers `sap-app-1`, `sap-caddy-1`; persistent volume `sap_sap_data`.
 - Secrets: `/etc/sap/env.production`, root-owned mode 0600. Do not print expanded Compose configuration.
 - Provider-operation cap: **5,000**, with existing usage preserved (44 at verification). This is not a dollar budget.
 - Prior Pi deployment: `68b2b04ddfeddbf5`. Prior history deployment: `2460afb7dd171a9a`. Prior original-payload release: `822907784fd32ba4`.
+
+## Urgent P5 speech
+
+P5 solo speech starts “Urgent message from [sender] on [app]” for messaging apps,
+or “Urgent notification from [sender] on [app]” for other sources. Without a
+known sender it says “Urgent notification on [app]”. P5 groups use “Urgent messages
+in [chat] on [app]”, or “Urgent messages from [sender] on [app]” for direct-contact
+groups, followed by the count and summary. Unknown group sources use “Urgent
+notifications on [app]”. Urgency comes only from P5/max member priority.
+
+P3 and P4 prefixes, classification, grouping, hidden-preview behavior and speech
+length limits are unchanged. This affects newly generated speech; in-flight audio
+is not rewritten. No queued P5 items were present at pre-deployment inspection.
+Previous release: `77cf2931bc3cd6e1`. Verification artifact:
+`artifacts/urgent-speech-release-verification.json`.
+369 tests passed, including exact P3/P4 wording regression checks, P5 group/source
+variants, bounded long-label speech and the TTS delivery pipeline. Production
+checks are read-only; no synthetic notifications or automatic playback/ACKs.
 
 ## Combine unplayed conversations until delivery
 

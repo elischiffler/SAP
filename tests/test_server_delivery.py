@@ -165,7 +165,7 @@ async def test_all_priorities_discard_retention_and_alert_before_audio(settings)
         assert [item["priority"] for item in state["items"]] == [5, 4, 3]
         assert len(classifier.calls) == 5
         assert speech.calls == [
-            "New notification on Test from Fictional Sender: 'Play this synthetic message.'",
+            "Urgent notification from Fictional Sender on Test: 'Play this synthetic message.'",
             "New notification on Test from Fictional Sender: 'Fourth-level speech'",
             "New notification on Test from Fictional Sender: 'Third-level speech'",
         ]

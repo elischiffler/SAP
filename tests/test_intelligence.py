@@ -180,7 +180,7 @@ async def test_batch_retains_critical_fact_at_end_of_long_preview(monkeypatch):
     from intelligence.formatting import format_notification_for_speech
 
     spoken = format_notification_for_speech(notification, result).spoken_text
-    assert spoken == f"New message on Messages from Sam. Summary: {summary}"
+    assert spoken == f"Urgent message from Sam on Messages. Summary: {summary}"
 
 
 async def test_batch_omits_hidden_and_empty_previews_and_keeps_original_indexes(monkeypatch):

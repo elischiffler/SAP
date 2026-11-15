@@ -69,12 +69,17 @@ def _display_app(app: str) -> str:
     return display_app_name(app)
 
 
-def _speech_prefix(notification: NotificationInput) -> str:
+def _speech_prefix(notification: NotificationInput, priority: int = 3) -> str:
     app = _source_label(_display_app(notification.app), 100) or "an unknown app"
     is_message = app.casefold() in _MESSAGING_APPS
+    sender = _source_label(notification.sender or "", 120)
+    if priority == 5:
+        if sender:
+            kind = "message" if is_message else "notification"
+            return f"Urgent {kind} from {sender} on {app}"
+        return f"Urgent notification on {app}"
     prefix = f"New {'message' if is_message else 'notification'} on {app}"
 
-    sender = _source_label(notification.sender or "", 120)
     if sender:
         prefix += f" from {sender}"
     elif is_message:
@@ -123,7 +128,7 @@ def format_notification_for_speech(
     if result.priority <= 2:
         return result
 
-    prefix = _speech_prefix(notification)
+    prefix = _speech_prefix(notification, result.priority)
 
     preview = ""
     if not notification.content_hidden and result.evidence == "sufficient":

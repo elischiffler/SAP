@@ -872,6 +872,7 @@ class QueueStore:
             return NotificationGroup(
                 app=group["app"],
                 sender=group["conversation_name"] or group["sender"],
+                conversation_name=group["conversation_name"],
                 members=[
                     {**dict(member), "received_at": utc_iso(member["received_at"])}
                     for member in members
